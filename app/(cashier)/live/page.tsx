@@ -3,6 +3,7 @@ import { Money } from "@/components/money";
 import { AccountStrip } from "./_components/account-strip";
 import { BuyInForm } from "./_components/tx-buyin-form";
 import { CashOutForm } from "./_components/tx-cashout-form";
+import { TransactionStream } from "./_components/transaction-stream";
 
 export default async function LiveSessionPage() {
   const session = await getOpenSession();
@@ -50,7 +51,7 @@ export default async function LiveSessionPage() {
       </header>
       <AccountStrip sessionId={session.id} />
       <div className="grid grid-cols-[1fr_320px] gap-4">
-        <div className="text-slate-400 text-sm">Transaction stream coming next.</div>
+        <TransactionStream sessionId={session.id} />
         <div className="flex flex-col gap-4">
           <BuyInForm sessionId={session.id} gameId={session.games[0].id} />
           <CashOutForm sessionId={session.id} gameId={session.games[0].id} />
