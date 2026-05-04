@@ -68,27 +68,50 @@ export async function closeSession(formData: FormData): Promise<void> {
   const sessionId = formData.get("sessionId")?.toString();
   if (!sessionId) throw new Error("sessionId required");
 
-  const session = await prisma.session.findUnique({
-    where: { id: sessionId },
-    include: { games: true },
-  });
-  if (!session) throw new Error("Session not found");
-  if (session.status !== "OPEN") throw new Error("Session already closed");
-
   const cashierId = await getCashierUserId();
   const GAME_SCOPED = new Set(["RAKE_POOL", "PROMO_POOL", "TOURNAMENT_POOL"]);
 
-  // For each account, record one SessionAccountClose row.
-  // For game-scoped accounts, one row per game.
-  for (const account of ACCOUNTS) {
-    if (GAME_SCOPED.has(account)) {
-      for (const game of session.games) {
-        const expected = await getAccountBalance({ account, sessionId, gameId: game.id });
-        const counted = new Decimal(formData.get(`counted_${account}_${game.id}`)?.toString() ?? "0");
+  // Optimistic-lock: only proceed if status is still OPEN at the moment we start.
+  // We freeze the session FIRST (atomic update where status = OPEN), then write account-close rows.
+  // If two concurrent requests both pass the optimistic check, only one's update will succeed.
+  await prisma.$transaction(async (tx) => {
+    const lockResult = await tx.session.updateMany({
+      where: { id: sessionId, status: "OPEN" },
+      data: { status: "CLOSED", closedAt: new Date(), closedById: cashierId },
+    });
+
+    if (lockResult.count === 0) {
+      throw new Error("Session is not open (already closed or doesn't exist)");
+    }
+
+    const session = await tx.session.findUniqueOrThrow({
+      where: { id: sessionId },
+      include: { games: true },
+    });
+
+    for (const account of ACCOUNTS) {
+      if (GAME_SCOPED.has(account)) {
+        for (const game of session.games) {
+          const expected = await getAccountBalance({ account, sessionId, gameId: game.id });
+          const counted = new Decimal(formData.get(`counted_${account}_${game.id}`)?.toString() ?? "0");
+          const variance = counted.sub(expected);
+          await tx.sessionAccountClose.create({
+            data: {
+              sessionId, account, gameId: game.id,
+              expected: expected.toString(),
+              counted: counted.toString(),
+              variance: variance.toString(),
+              countedById: cashierId,
+            },
+          });
+        }
+      } else {
+        const expected = await getAccountBalance({ account, sessionId });
+        const counted = new Decimal(formData.get(`counted_${account}`)?.toString() ?? "0");
         const variance = counted.sub(expected);
-        await prisma.sessionAccountClose.create({
+        await tx.sessionAccountClose.create({
           data: {
-            sessionId, account, gameId: game.id,
+            sessionId, account,
             expected: expected.toString(),
             counted: counted.toString(),
             variance: variance.toString(),
@@ -96,38 +119,18 @@ export async function closeSession(formData: FormData): Promise<void> {
           },
         });
       }
-    } else {
-      const expected = await getAccountBalance({ account, sessionId });
-      const counted = new Decimal(formData.get(`counted_${account}`)?.toString() ?? "0");
-      const variance = counted.sub(expected);
-      await prisma.sessionAccountClose.create({
-        data: {
-          sessionId, account,
-          expected: expected.toString(),
-          counted: counted.toString(),
-          variance: variance.toString(),
-          countedById: cashierId,
-        },
-      });
     }
-  }
 
-  // Freeze the session
-  await prisma.session.update({
-    where: { id: sessionId },
-    data: {
-      status: "CLOSED",
-      closedAt: new Date(),
-      closedById: cashierId,
-      closingCash: formData.get("counted_CASH_DRAWER")?.toString() ?? "0",
-    },
-  });
+    await tx.session.update({
+      where: { id: sessionId },
+      data: { closingCash: formData.get("counted_CASH_DRAWER")?.toString() ?? "0" },
+    });
 
-  // Close any open games
-  await prisma.game.updateMany({
-    where: { sessionId, status: "OPEN" },
-    data: { status: "CLOSED", closedAt: new Date() },
-  });
+    await tx.game.updateMany({
+      where: { sessionId, status: "OPEN" },
+      data: { status: "CLOSED", closedAt: new Date() },
+    });
+  }, { isolationLevel: "Serializable" });
 
   revalidatePath("/live");
   revalidatePath("/close");
