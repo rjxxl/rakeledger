@@ -15,7 +15,7 @@
 Created during this plan:
 
 ```
-poker-room-accounting/
+rakeledger/
 ├── package.json
 ├── tsconfig.json
 ├── next.config.ts
@@ -93,7 +93,7 @@ poker-room-accounting/
 - [ ] **Step 1: Run create-next-app**
 
 ```bash
-cd /c/Users/rjxxl/projects/poker-room-accounting
+cd /c/Users/rjxxl/projects/rakeledger
 npx create-next-app@latest . --typescript --tailwind --app --no-eslint --src-dir=false --import-alias="@/*" --turbopack --use-npm
 ```
 
@@ -130,22 +130,22 @@ services:
     image: postgres:16
     restart: unless-stopped
     environment:
-      POSTGRES_USER: poker
-      POSTGRES_PASSWORD: poker_dev
-      POSTGRES_DB: poker_room_accounting
+      POSTGRES_USER: rakeledger
+      POSTGRES_PASSWORD: rakeledger_dev
+      POSTGRES_DB: rakeledger
     ports:
       - "5432:5432"
     volumes:
-      - poker_pg_data:/var/lib/postgresql/data
+      - rakeledger_pg_data:/var/lib/postgresql/data
 
 volumes:
-  poker_pg_data:
+  rakeledger_pg_data:
 ```
 
 - [ ] **Step 2: Write `.env.example`**
 
 ```
-DATABASE_URL="postgresql://poker:poker_dev@localhost:5432/poker_room_accounting?schema=public"
+DATABASE_URL="postgresql://rakeledger:rakeledger_dev@localhost:5432/rakeledger?schema=public"
 ```
 
 - [ ] **Step 3: Copy to `.env` (gitignored) and start Postgres**
@@ -664,7 +664,7 @@ Expected: migration applied; no errors.
 - [ ] **Step 4: Manually verify trigger by attempting an UPDATE**
 
 ```bash
-docker compose exec postgres psql -U poker -d poker_room_accounting -c 'UPDATE "Transaction" SET amount = 100 WHERE id = '"'"'nonexistent'"'"';'
+docker compose exec postgres psql -U rakeledger -d rakeledger -c 'UPDATE "Transaction" SET amount = 100 WHERE id = '"'"'nonexistent'"'"';'
 ```
 
 Expected: error `Table Transaction is append-only; UPDATE/DELETE blocked` (even though the row doesn't exist, the trigger fires; if it instead reports 0 rows updated without firing, then the trigger isn't installed correctly — recheck the migration).
@@ -1898,7 +1898,7 @@ import "./globals.css";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "CageRoom",
+  title: "RakeLedger",
   description: "Poker room accounting",
 };
 
@@ -1945,7 +1945,7 @@ export function NavSidebar({ activePath }: { activePath: string }) {
   return (
     <aside className="w-[220px] bg-[var(--color-panel)] border-r border-[var(--color-border)] p-4 flex flex-col">
       <div className="text-amber-500 font-bold text-base mb-5 pb-3 border-b border-[var(--color-border)]">
-        ♠ CageRoom
+        ♠ RakeLedger
       </div>
       <nav className="flex flex-col gap-1">
         {items.map((item) => {
@@ -2168,7 +2168,7 @@ Visit http://localhost:3000/live. Expected: "No session open" form. Submit with 
 Verify in DB:
 
 ```bash
-docker compose exec postgres psql -U poker -d poker_room_accounting -c 'SELECT id, status, "openingCash" FROM "Session";'
+docker compose exec postgres psql -U rakeledger -d rakeledger -c 'SELECT id, status, "openingCash" FROM "Session";'
 ```
 
 Expected: one row with status=OPEN.
@@ -2519,7 +2519,7 @@ npm run dev
 You'll need at least one player to test. Manually create one for now via the seed:
 
 ```bash
-docker compose exec postgres psql -U poker -d poker_room_accounting -c 'INSERT INTO "Player" (id, "displayName") VALUES (gen_random_uuid()::text, '"'"'Test Player A'"'"');'
+docker compose exec postgres psql -U rakeledger -d rakeledger -c 'INSERT INTO "Player" (id, "displayName") VALUES (gen_random_uuid()::text, '"'"'Test Player A'"'"');'
 ```
 
 (We'll add player CRUD in a later task.) Then visit /live, fill in the buy-in form, submit. The cash_drawer tile should update from $0 to your buy-in amount.
@@ -3803,7 +3803,7 @@ Open a session → record some transactions → click "Close session…" → rev
 Verify in DB:
 
 ```bash
-docker compose exec postgres psql -U poker -d poker_room_accounting -c 'SELECT account, expected, counted, variance FROM "SessionAccountClose" ORDER BY account;'
+docker compose exec postgres psql -U rakeledger -d rakeledger -c 'SELECT account, expected, counted, variance FROM "SessionAccountClose" ORDER BY account;'
 ```
 
 Expected: one row per account, variance = 0 (since defaults pre-fill expected).
@@ -4061,7 +4061,7 @@ git commit -m "feat: friendly error when recording on a closed session"
 - [ ] **Step 1: Replace the auto-generated README with usage docs**
 
 ```markdown
-# Poker Room Accounting
+# RakeLedger
 
 Web app that replaces the spreadsheet workflow at a small private poker room.
 Append-only multi-account ledger, cashier-driven transaction recording, end-of-night reconciliation.

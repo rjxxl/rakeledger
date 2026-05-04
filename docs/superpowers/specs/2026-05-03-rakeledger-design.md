@@ -1,4 +1,4 @@
-# Poker Room Accounting — Design Spec
+# RakeLedger — Design Spec
 
 **Date:** 2026-05-03
 **Status:** Approved (brainstorming)
@@ -594,7 +594,7 @@ Cards:
 ### 13.1 Repository layout (rough)
 
 ```
-poker-room-accounting/
+rakeledger/
 ├── app/
 │   ├── (auth)/              # sign-in, pending-approval
 │   ├── (cashier)/           # live session, transactions, close-out

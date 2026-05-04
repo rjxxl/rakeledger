@@ -3,13 +3,13 @@ services:
     image: postgres:16
     restart: unless-stopped
     environment:
-      POSTGRES_USER: poker
-      POSTGRES_PASSWORD: poker_dev
-      POSTGRES_DB: poker_room_accounting
+      POSTGRES_USER: rakeledger
+      POSTGRES_PASSWORD: rakeledger_dev
+      POSTGRES_DB: rakeledger
     ports:
       - "5432:5432"
     volumes:
-      - poker_pg_data:/var/lib/postgresql/data
+      - rakeledger_pg_data:/var/lib/postgresql/data
 
 volumes:
-  poker_pg_data:
+  rakeledger_pg_data:

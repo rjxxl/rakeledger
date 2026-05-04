@@ -17,7 +17,7 @@ export function NavSidebar({ activePath }: { activePath: string }) {
   return (
     <aside className="w-[220px] bg-[var(--color-panel)] border-r border-[var(--color-border)] p-4 flex flex-col">
       <div className="text-amber-500 font-bold text-base mb-5 pb-3 border-b border-[var(--color-border)]">
-        ♠ CageRoom
+        ♠ RakeLedger
       </div>
       <nav className="flex flex-col gap-1">
         {items.map((item) => {

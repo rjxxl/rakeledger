@@ -1,4 +1,4 @@
-# Poker Room Accounting
+# RakeLedger
 
 Web app that replaces the spreadsheet workflow at a small private poker room.
 Append-only multi-account ledger, cashier-driven transaction recording, end-of-night reconciliation.
