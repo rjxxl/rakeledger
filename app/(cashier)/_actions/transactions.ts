@@ -83,3 +83,28 @@ export async function recordCashOut(formData: FormData): Promise<void> {
 
   revalidatePath("/live");
 }
+
+export async function recordRake(formData: FormData): Promise<void> {
+  const sessionId = formData.get("sessionId")?.toString();
+  const gameId = formData.get("gameId")?.toString();
+  const staffId = formData.get("staffId")?.toString() || null;
+  const tableId = formData.get("tableId")?.toString() || null;
+  const amount = new Decimal(formData.get("amount")?.toString() ?? "0");
+
+  if (!sessionId || !gameId || amount.lessThanOrEqualTo(0)) {
+    throw new Error("Rake requires a positive amount");
+  }
+  const cashierId = await cashierUserId();
+
+  await createTransaction({
+    sessionId, gameId, type: "RAKE",
+    createdById: cashierId, amount, method: "CHIPS",
+    staffId, tableId,
+    entries: [
+      { account: "CHIP_FLOAT", delta: amount.neg() },
+      { account: "RAKE_POOL", delta: amount, gameId },
+    ],
+  });
+
+  revalidatePath("/live");
+}
