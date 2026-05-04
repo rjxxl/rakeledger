@@ -8,6 +8,8 @@ import { computeTipPayouts } from "@/lib/payouts/tip-payout";
 import { TipPayoutStep } from "./_components/tip-payout-step";
 import { HouseTaxStep } from "./_components/house-tax-step";
 import { RakeDistributionStep } from "./_components/rake-distribution-step";
+import { WalksReturnsStep } from "./_components/walks-returns-step";
+import { getPlayersWithUnresolvedChips, getCandidateWalksForReturn } from "../_actions/walks";
 import { prisma } from "@/lib/db";
 
 export default async function ClosePage() {
@@ -91,6 +93,10 @@ export default async function ClosePage() {
 
   const defaultGameId = session.games[0].id;
 
+  const chipFloatBalance = await getAccountBalance({ account: "CHIP_FLOAT", sessionId: session.id });
+  const candidatePlayers = await getPlayersWithUnresolvedChips(session.id);
+  const candidateWalks = await getCandidateWalksForReturn(session.id);
+
   return (
     <div className="max-w-4xl flex flex-col gap-6 pb-12">
       <h2 className="text-lg font-semibold">Close Session</h2>
@@ -130,7 +136,18 @@ export default async function ClosePage() {
       </section>
 
       <section>
-        <h3 className="text-sm font-semibold text-slate-300 mb-2">Step 4 &mdash; Reconcile accounts &amp; close</h3>
+        <h3 className="text-sm font-semibold text-slate-300 mb-2">Step 4 &mdash; Resolve chip float (walks &amp; returns)</h3>
+        <WalksReturnsStep
+          sessionId={session.id}
+          gameId={defaultGameId}
+          chipFloatBalance={chipFloatBalance}
+          candidatePlayers={candidatePlayers}
+          candidateWalks={candidateWalks}
+        />
+      </section>
+
+      <section>
+        <h3 className="text-sm font-semibold text-slate-300 mb-2">Step 5 &mdash; Reconcile accounts &amp; close</h3>
         <p className="text-xs text-slate-500 mb-3">
           Count each account and enter the actual amount. Variances are recorded but allowed.
         </p>
