@@ -1,36 +1,64 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Poker Room Accounting
 
-## Getting Started
+Web app that replaces the spreadsheet workflow at a small private poker room.
+Append-only multi-account ledger, cashier-driven transaction recording, end-of-night reconciliation.
 
-First, run the development server:
+**Plan 1 status:** cashier-only foundation. No auth in this plan — runs on a local machine, used by the cashier directly. Auth + runner mobile + owner dashboards come in subsequent plans.
+
+## Local development
+
+### Prerequisites
+
+- Node.js 20+
+- Docker (for Postgres)
+- npm
+
+### Setup
 
 ```bash
+# 1. Start Postgres
+docker compose up -d
+
+# 2. Install dependencies
+npm install
+
+# 3. Apply migrations and seed default users
+npx prisma migrate dev
+npx prisma db seed
+
+# 4. Start dev server
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Visit http://localhost:3000.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Tests
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+# Unit + integration (Vitest, hits the DB)
+npm test
 
-## Learn More
+# E2E (Playwright, full night smoke test)
+npm run test:e2e
+```
 
-To learn more about Next.js, take a look at the following resources:
+## Project structure
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- `prisma/schema.prisma` — full data model
+- `prisma/triggers.sql` — append-only and balanced-entry DB triggers
+- `lib/ledger/` — core append-only ledger module (heart of the system)
+- `app/(cashier)/` — cashier UI routes
+- `tests/unit/ledger/` — ledger module tests
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Default seeded users (Plan 1)
 
-## Deploy on Vercel
+- "Cashier" — implicit user; all transactions recorded by this user
+- "Dealer Jake", "Dealer Anna" — sample dealers (no logins in Plan 1)
+- "Waitress Lila" — sample waitress
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Workflow
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+1. Open a session (with optional starting cash float)
+2. Add players via /players, staff via /staff, tables via /tables
+3. Record transactions from the live session view: buy-ins, cash-outs, rake, tip drops, markers
+4. Close the session via /close — count each account, record variances, freeze
