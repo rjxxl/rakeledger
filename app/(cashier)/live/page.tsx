@@ -5,6 +5,7 @@ import { BuyInForm } from "./_components/tx-buyin-form";
 import { CashOutForm } from "./_components/tx-cashout-form";
 import { RakeForm } from "./_components/tx-rake-form";
 import { TipDropForm } from "./_components/tx-tipdrop-form";
+import { MarkerForm } from "./_components/tx-marker-form";
 import { TransactionStream } from "./_components/transaction-stream";
 
 export default async function LiveSessionPage() {
@@ -59,6 +60,7 @@ export default async function LiveSessionPage() {
           <CashOutForm sessionId={session.id} gameId={session.games[0].id} />
           <RakeForm sessionId={session.id} gameId={session.games[0].id} />
           <TipDropForm sessionId={session.id} gameId={session.games[0].id} />
+          <MarkerForm sessionId={session.id} gameId={session.games[0].id} />
         </div>
       </div>
     </div>

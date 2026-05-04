@@ -133,3 +133,78 @@ export async function recordTipDrop(formData: FormData): Promise<void> {
 
   revalidatePath("/live");
 }
+
+export async function issueMarker(formData: FormData): Promise<void> {
+  const sessionId = formData.get("sessionId")?.toString();
+  const gameId = formData.get("gameId")?.toString();
+  const playerId = formData.get("playerId")?.toString();
+  const amount = new Decimal(formData.get("amount")?.toString() ?? "0");
+  const collateral = formData.get("collateral")?.toString() || null;
+
+  if (!sessionId || !gameId || !playerId || amount.lessThanOrEqualTo(0)) {
+    throw new Error("Marker issue requires player and positive amount");
+  }
+  const cashierId = await cashierUserId();
+
+  const tx = await createTransaction({
+    sessionId, gameId, type: "MARKER_ISSUE",
+    createdById: cashierId, amount, method: "CHIPS",
+    playerId,
+    note: collateral ? `Collateral: ${collateral}` : null,
+    entries: [
+      { account: "MARKER_OUTSTANDING", delta: amount },
+      { account: "CHIP_FLOAT", delta: amount },
+    ],
+  });
+
+  await prisma.marker.create({
+    data: {
+      playerId, sessionId,
+      issuedTxId: tx.id,
+      amount: amount.toString(),
+      status: "OPEN",
+      collateral,
+    },
+  });
+
+  revalidatePath("/live");
+  revalidatePath("/markers");
+}
+
+export async function repayMarker(formData: FormData): Promise<void> {
+  const sessionId = formData.get("sessionId")?.toString();
+  const gameId = formData.get("gameId")?.toString();
+  const markerId = formData.get("markerId")?.toString();
+  const amount = new Decimal(formData.get("amount")?.toString() ?? "0");
+  const method = (formData.get("method")?.toString() as PaymentMethod) ?? "CASH";
+
+  if (!sessionId || !gameId || !markerId || amount.lessThanOrEqualTo(0)) {
+    throw new Error("Marker repay requires marker and positive amount");
+  }
+  const marker = await prisma.marker.findUnique({ where: { id: markerId } });
+  if (!marker) throw new Error("Marker not found");
+  if (marker.status !== "OPEN") throw new Error("Marker is not open");
+
+  const cashierId = await cashierUserId();
+  const targetAccount = METHOD_TO_ACCOUNT[method];
+
+  await createTransaction({
+    sessionId, gameId, type: "MARKER_REPAY",
+    createdById: cashierId, amount, method,
+    playerId: marker.playerId,
+    entries: [
+      { account: targetAccount, delta: amount },
+      { account: "MARKER_OUTSTANDING", delta: amount.neg() },
+    ],
+  });
+
+  const newRepaid = new Decimal(marker.repaidAmount.toString()).add(amount);
+  const newStatus = newRepaid.greaterThanOrEqualTo(marker.amount.toString()) ? "REPAID" : "OPEN";
+  await prisma.marker.update({
+    where: { id: markerId },
+    data: { repaidAmount: newRepaid.toString(), status: newStatus },
+  });
+
+  revalidatePath("/live");
+  revalidatePath("/markers");
+}
