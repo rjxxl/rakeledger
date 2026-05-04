@@ -7,13 +7,16 @@ const decimalString = z.string().regex(/^\d+(\.\d+)?$/, "Must be a positive deci
 
 const methodEnum = z.enum(["CASH", "ZELLE", "VENMO", "CASHAPP", "APPLE_PAY", "OTHER"]);
 
+/** Optional FK field: empty string from an HTML select treated as null */
+const optionalId = z.string().optional().transform(v => (v && v.length > 0 ? v : null));
+
 export const buyInSchema = z.object({
   sessionId: z.string().min(1),
   gameId: z.string().min(1),
   playerId: z.string().min(1),
   amount: decimalString,
   method: methodEnum,
-  tableId: z.string().nullable().optional(),
+  tableId: optionalId,
 });
 
 export const cashOutSchema = z.object({
@@ -21,7 +24,7 @@ export const cashOutSchema = z.object({
   gameId: z.string().min(1),
   playerId: z.string().min(1),
   method: methodEnum,
-  tableId: z.string().nullable().optional(),
+  tableId: optionalId,
   n100: z.coerce.number().int().nonnegative().default(0),
   n25: z.coerce.number().int().nonnegative().default(0),
   n5: z.coerce.number().int().nonnegative().default(0),
@@ -34,8 +37,8 @@ export const cashOutSchema = z.object({
 export const rakeSchema = z.object({
   sessionId: z.string().min(1),
   gameId: z.string().min(1),
-  staffId: z.string().nullable().optional(),
-  tableId: z.string().nullable().optional(),
+  staffId: optionalId,
+  tableId: optionalId,
   amount: decimalString,
 });
 
@@ -43,7 +46,7 @@ export const tipDropSchema = z.object({
   sessionId: z.string().min(1),
   gameId: z.string().min(1),
   staffId: z.string().min(1),
-  tableId: z.string().nullable().optional(),
+  tableId: optionalId,
   amount: decimalString,
 });
 
@@ -52,7 +55,7 @@ export const markerIssueSchema = z.object({
   gameId: z.string().min(1),
   playerId: z.string().min(1),
   amount: decimalString,
-  collateral: z.string().nullable().optional(),
+  collateral: z.string().optional().transform(v => v || null),
 });
 
 export const markerRepaySchema = z.object({

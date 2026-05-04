@@ -11,16 +11,27 @@ interface Recipient {
   method: "CASH" | "ZELLE" | "VENMO" | "CASHAPP" | "APPLE_PAY";
 }
 
+/** Serialized form passed across the RSC boundary (Decimal → string) */
+interface RecipientSerial {
+  userId: string;
+  userName: string;
+  amount: string;
+  method: "CASH" | "ZELLE" | "VENMO" | "CASHAPP" | "APPLE_PAY";
+}
+
 interface Props {
   sessionId: string;
   gameId: string;
   gameName: string;
-  totalRake: Decimal;
-  initialRecipients: Recipient[];
+  totalRake: string;
+  initialRecipients: RecipientSerial[];
 }
 
-export function RakeDistributionStep({ sessionId, gameId, gameName, totalRake, initialRecipients }: Props) {
-  const [recipients, setRecipients] = useState<Recipient[]>(initialRecipients);
+export function RakeDistributionStep({ sessionId, gameId, gameName, totalRake: totalRakeStr, initialRecipients: initialRecipientsSerial }: Props) {
+  const totalRake = new Decimal(totalRakeStr);
+  const [recipients, setRecipients] = useState<Recipient[]>(() =>
+    initialRecipientsSerial.map(r => ({ ...r, amount: new Decimal(r.amount) }))
+  );
   const [done, setDone] = useState(false);
 
   const allocated = recipients.reduce((sum, r) => sum.add(r.amount), new Decimal(0));

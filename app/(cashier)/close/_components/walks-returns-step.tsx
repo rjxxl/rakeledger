@@ -4,11 +4,12 @@ import Decimal from "decimal.js";
 import { useState } from "react";
 import { recordChipWalk, recordChipReturn } from "../../_actions/walks";
 
+/** Serialized walk passed across the RSC boundary (Prisma Decimal → string, Date → string) */
 interface Walk {
   id: string;
   player: { id: string; displayName: string } | null;
-  amount: { toString(): string };
-  session: { openedAt: Date };
+  amount: string;
+  sessionOpenedAt: string;
 }
 
 interface Player {
@@ -19,12 +20,13 @@ interface Player {
 interface Props {
   sessionId: string;
   gameId: string;
-  chipFloatBalance: Decimal;
+  chipFloatBalance: string;
   candidatePlayers: Player[];
   candidateWalks: Walk[];
 }
 
-export function WalksReturnsStep({ sessionId, gameId, chipFloatBalance, candidatePlayers, candidateWalks }: Props) {
+export function WalksReturnsStep({ sessionId, gameId, chipFloatBalance: chipFloatBalanceStr, candidatePlayers, candidateWalks }: Props) {
+  const chipFloatBalance = new Decimal(chipFloatBalanceStr);
   const [doneIds, setDoneIds] = useState<Set<string>>(new Set());
 
   if (chipFloatBalance.equals(0)) {
@@ -80,9 +82,9 @@ export function WalksReturnsStep({ sessionId, gameId, chipFloatBalance, candidat
           {candidateWalks.map((w) => (
             <li key={w.id} className="flex items-center gap-2 text-sm">
               <span className="flex-1">
-                {w.player?.displayName ?? "Unknown"} — ${w.amount.toString()}
+                {w.player?.displayName ?? "Unknown"} — ${w.amount}
                 <span className="text-xs text-slate-500 ml-2">
-                  walked {new Date(w.session.openedAt).toLocaleDateString()}
+                  walked {new Date(w.sessionOpenedAt).toLocaleDateString()}
                 </span>
               </span>
               <form action={async (fd) => {
@@ -92,7 +94,7 @@ export function WalksReturnsStep({ sessionId, gameId, chipFloatBalance, candidat
                 <input type="hidden" name="sessionId" value={sessionId} />
                 <input type="hidden" name="gameId" value={gameId} />
                 <input type="hidden" name="playerId" value={w.player?.id ?? ""} />
-                <input type="hidden" name="amount" value={w.amount.toString()} />
+                <input type="hidden" name="amount" value={w.amount} />
                 <input type="hidden" name="matchesWalkId" value={w.id} />
                 <button type="submit" disabled={doneIds.has(w.id)}
                   className="bg-amber-500 text-black font-semibold rounded px-2 py-1 text-xs disabled:opacity-30">

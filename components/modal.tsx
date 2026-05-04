@@ -18,7 +18,15 @@ export function Modal({ trigger, title, description, children, wide = false }: M
 
   return (
     <Dialog.Root open={open} onOpenChange={setOpen}>
-      <Dialog.Trigger asChild>{trigger}</Dialog.Trigger>
+      {/*
+        Avoid Dialog.Trigger asChild here: Radix Slot clones React elements, which produces a
+        server/client hydration mismatch when the trigger is rendered by an RSC parent
+        (Primitive.button.Slot vs Primitive.button.SlotClone). Using a plain div with onClick
+        keeps the trigger content unchanged in the DOM and avoids the mismatch.
+      */}
+      <div onClick={() => setOpen(true)} style={{ display: "contents" }}>
+        {trigger}
+      </div>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40" />
         <Dialog.Content

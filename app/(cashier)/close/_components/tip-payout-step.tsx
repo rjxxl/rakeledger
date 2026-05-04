@@ -3,12 +3,35 @@
 import Decimal from "decimal.js";
 import { useState } from "react";
 import { executeTipPayout } from "../../_actions/payouts";
-import type { TipPayoutRow } from "@/lib/payouts/tip-payout";
+
+/** Serialized form of TipPayoutRow passed across the RSC boundary (Decimal → string) */
+export interface TipPayoutRowSerial {
+  staffId: string;
+  staffName: string;
+  staffRole: string;
+  total: string;
+  taxRate: string;
+  calculatedTax: string;
+  roundedTax: string;
+  netToStaff: string;
+}
+
+/** Internal row with Decimal values for computation */
+interface TipPayoutRowDecimal {
+  staffId: string;
+  staffName: string;
+  staffRole: string;
+  total: Decimal;
+  taxRate: Decimal;
+  calculatedTax: Decimal;
+  roundedTax: Decimal;
+  netToStaff: Decimal;
+}
 
 interface Props {
   sessionId: string;
   gameId: string;
-  rows: TipPayoutRow[];
+  rows: TipPayoutRowSerial[];
 }
 
 interface RowState {
@@ -17,7 +40,17 @@ interface RowState {
   done: boolean;
 }
 
-export function TipPayoutStep({ sessionId, gameId, rows }: Props) {
+export function TipPayoutStep({ sessionId, gameId, rows: rowsSerial }: Props) {
+  // Deserialize string amounts to Decimal for computation
+  const rows: TipPayoutRowDecimal[] = rowsSerial.map(r => ({
+    ...r,
+    total: new Decimal(r.total),
+    taxRate: new Decimal(r.taxRate),
+    calculatedTax: new Decimal(r.calculatedTax),
+    roundedTax: new Decimal(r.roundedTax),
+    netToStaff: new Decimal(r.netToStaff),
+  }));
+
   const [state, setState] = useState<Record<string, RowState>>(() => {
     const initial: Record<string, RowState> = {};
     for (const r of rows) {
@@ -37,7 +70,7 @@ export function TipPayoutStep({ sessionId, gameId, rows }: Props) {
     setState((s) => ({ ...s, [staffId]: { ...s[staffId], method } }));
   }
 
-  async function confirm(row: TipPayoutRow) {
+  async function confirm(row: TipPayoutRowDecimal) {
     const cur = state[row.staffId];
     const netToStaff = row.total.sub(cur.roundedTax);
     const fd = new FormData();

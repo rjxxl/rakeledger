@@ -5,7 +5,7 @@ import { getAccountBalance } from "@/lib/ledger/balance";
 import { ACCOUNTS } from "@/lib/ledger/accounts";
 import { Money } from "@/components/money";
 import { computeTipPayouts } from "@/lib/payouts/tip-payout";
-import { TipPayoutStep } from "./_components/tip-payout-step";
+import { TipPayoutStep, type TipPayoutRowSerial } from "./_components/tip-payout-step";
 import { HouseTaxStep } from "./_components/house-tax-step";
 import { RakeDistributionStep } from "./_components/rake-distribution-step";
 import { WalksReturnsStep } from "./_components/walks-returns-step";
@@ -121,7 +121,20 @@ export default async function ClosePage() {
 
       <section>
         <h3 className="text-sm font-semibold text-slate-300 mb-2">Step 1 &mdash; Pay out tips</h3>
-        <TipPayoutStep sessionId={session.id} gameId={defaultGameId} rows={tipRows} />
+        <TipPayoutStep
+          sessionId={session.id}
+          gameId={defaultGameId}
+          rows={tipRows.map((r): TipPayoutRowSerial => ({
+            staffId: r.staffId,
+            staffName: r.staffName,
+            staffRole: r.staffRole,
+            total: r.total.toString(),
+            taxRate: r.taxRate.toString(),
+            calculatedTax: r.calculatedTax.toString(),
+            roundedTax: r.roundedTax.toString(),
+            netToStaff: r.netToStaff.toString(),
+          }))}
+        />
       </section>
 
       <section>
@@ -129,8 +142,8 @@ export default async function ClosePage() {
         <HouseTaxStep
           sessionId={session.id}
           gameId={defaultGameId}
-          totalHouseTax={houseTaxPool}
-          initialRecipients={houseTaxRecipients}
+          totalHouseTax={houseTaxPool.toString()}
+          initialRecipients={houseTaxRecipients.map(r => ({ ...r, amount: r.amount.toString() }))}
         />
       </section>
 
@@ -143,8 +156,8 @@ export default async function ClosePage() {
               sessionId={session.id}
               gameId={rs.gameId}
               gameName={rs.gameName}
-              totalRake={rs.total}
-              initialRecipients={rs.recipients}
+              totalRake={rs.total.toString()}
+              initialRecipients={rs.recipients.map(r => ({ ...r, amount: r.amount.toString() }))}
             />
           ))}
         </div>
@@ -155,9 +168,14 @@ export default async function ClosePage() {
         <WalksReturnsStep
           sessionId={session.id}
           gameId={defaultGameId}
-          chipFloatBalance={chipFloatBalance}
+          chipFloatBalance={chipFloatBalance.toString()}
           candidatePlayers={candidatePlayers}
-          candidateWalks={candidateWalks}
+          candidateWalks={candidateWalks.map(w => ({
+            id: w.id,
+            player: w.player ? { id: w.player.id, displayName: w.player.displayName } : null,
+            amount: w.amount.toString(),
+            sessionOpenedAt: w.session.openedAt.toISOString(),
+          }))}
         />
       </section>
 
