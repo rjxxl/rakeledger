@@ -2,12 +2,8 @@ import Link from "next/link";
 import { getOpenSession, openSession } from "../_actions/session";
 import { Money } from "@/components/money";
 import { AccountStrip } from "./_components/account-strip";
-import { BuyInForm } from "./_components/tx-buyin-form";
-import { CashOutForm } from "./_components/tx-cashout-form";
-import { RakeForm } from "./_components/tx-rake-form";
-import { TipDropForm } from "./_components/tx-tipdrop-form";
-import { MarkerForm } from "./_components/tx-marker-form";
 import { TransactionStream } from "./_components/transaction-stream";
+import { QuickActions } from "./_components/quick-actions";
 
 export default async function LiveSessionPage() {
   const session = await getOpenSession();
@@ -32,10 +28,7 @@ export default async function LiveSessionPage() {
               className="bg-black/40 border border-[var(--color-border)] rounded px-3 py-2 text-white"
             />
           </label>
-          <button
-            type="submit"
-            className="bg-amber-500 text-black font-semibold rounded px-4 py-2 hover:bg-amber-400"
-          >
+          <button type="submit" className="bg-amber-500 text-black font-semibold rounded px-4 py-2 hover:bg-amber-400">
             Open Session
           </button>
         </form>
@@ -44,29 +37,28 @@ export default async function LiveSessionPage() {
   }
 
   return (
-    <div>
-      <header className="flex justify-between items-center mb-4">
-        <h2 className="text-lg font-semibold">Tonight's Session</h2>
-        <div className="flex items-center gap-3">
-          <div className="text-sm text-slate-500">
+    <div className="flex flex-col h-[calc(100vh-2rem)] gap-3">
+      <header className="flex justify-between items-center flex-shrink-0">
+        <div>
+          <h2 className="text-lg font-semibold">Tonight's Session</h2>
+          <div className="text-xs text-slate-500">
             opened {new Date(session.openedAt).toLocaleTimeString()} by {session.openedBy.name}
-            {" · "}
-            opening cash <Money amount={session.openingCash.toString()} />
+            {" · opening cash "}<Money amount={session.openingCash.toString()} />
           </div>
-          <Link href="/close" className="text-red-400 border border-red-900 rounded px-3 py-1.5 text-sm hover:bg-red-950/40">
-            Close session…
-          </Link>
         </div>
+        <Link href="/close" className="text-red-400 border border-red-900 rounded px-3 py-1.5 text-sm hover:bg-red-950/40">
+          Close session…
+        </Link>
       </header>
+
       <AccountStrip sessionId={session.id} />
-      <div className="grid grid-cols-[1fr_320px] gap-4">
-        <TransactionStream sessionId={session.id} />
-        <div className="flex flex-col gap-4">
-          <BuyInForm sessionId={session.id} gameId={session.games[0].id} />
-          <CashOutForm sessionId={session.id} gameId={session.games[0].id} />
-          <RakeForm sessionId={session.id} gameId={session.games[0].id} />
-          <TipDropForm sessionId={session.id} gameId={session.games[0].id} />
-          <MarkerForm sessionId={session.id} gameId={session.games[0].id} />
+
+      <div className="grid grid-cols-[1fr_320px] gap-3 flex-1 min-h-0">
+        <div className="overflow-auto">
+          <TransactionStream sessionId={session.id} />
+        </div>
+        <div className="flex flex-col gap-3 overflow-auto">
+          <QuickActions sessionId={session.id} gameId={session.games[0].id} />
         </div>
       </div>
     </div>
