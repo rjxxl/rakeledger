@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -8,4 +5,319 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  OWNER
+  ADMIN
+  CASHIER
+  RUNNER
+  DEALER // staff record only — no login in v1
+  WAITRESS // staff record only — no login in v1
+}
+
+enum UserStatus {
+  PENDING
+  ACTIVE
+  DISABLED
+}
+
+enum AccountType {
+  CASH_DRAWER
+  ZELLE
+  VENMO
+  CASHAPP
+  APPLE_PAY
+  CHIP_FLOAT
+  MARKER_OUTSTANDING
+  TIP_POOL
+  HOUSE_TAX_POOL
+  RAKE_POOL
+  PROMO_POOL
+  TOURNAMENT_POOL
+  EXTERNAL
+}
+
+enum PaymentMethod {
+  CASH
+  ZELLE
+  VENMO
+  CASHAPP
+  APPLE_PAY
+  OTHER
+  CHIPS // for in-cage flows like rake/tip drops where chips are the medium
+}
+
+enum TransactionType {
+  BUY_IN
+  CASH_OUT
+  RAKE
+  TOURNAMENT_FEE
+  TOURNAMENT_PAYOUT
+  TIP_DROP
+  TIP_HOUSE_TAX
+  TIP_PAYOUT
+  MARKER_ISSUE
+  MARKER_REPAY
+  MARKER_WRITE_OFF
+  FREEROLL_PRIZE_PAYOUT
+  JACKPOT_PAYOUT
+  STAFF_ADVANCE
+  FNB_COST
+  CHIP_WALK
+  CHIP_RETURN
+  DRAWER_COUNT_ADJUST
+  CHIP_FLOAT_ADJUST
+  RAKE_DISTRIBUTION
+  HOUSE_TAX_DISTRIBUTION
+  OPENING_FLOAT
+  CLOSING_FLOAT
+}
+
+enum SessionStatus {
+  OPEN
+  CLOSED
+}
+
+enum GameStatus {
+  OPEN
+  CLOSED
+}
+
+enum MarkerStatus {
+  OPEN
+  REPAID
+  WRITTEN_OFF
+}
+
+enum PickupStatus {
+  PENDING
+  SETTLED
+  CANCELLED
+}
+
+model Role {
+  id           String   @id @default(cuid())
+  name         String   @unique
+  isSystem     Boolean  @default(false)
+  description  String?
+  capabilities String[] // capability key list
+  markerLimit  Decimal? @db.Decimal(12, 2)
+  users        User[]
+}
+
+model User {
+  id           String     @id @default(cuid())
+  name         String
+  email        String?    @unique
+  googleSub    String?    @unique
+  role         UserRole
+  status       UserStatus @default(ACTIVE)
+  pinHash      String?
+  tipTaxRate   Decimal?   @db.Decimal(5, 4) // null = use system default; e.g. 0.2000 = 20%
+  notes        String?
+  customRoleId String?
+  customRole   Role?      @relation(fields: [customRoleId], references: [id])
+  createdAt    DateTime   @default(now())
+
+  capabilityGrants UserCapabilityGrant[]
+  openedSessions   Session[]             @relation("SessionOpenedBy")
+  closedSessions   Session[]             @relation("SessionClosedBy")
+  txCreated        Transaction[]         @relation("TxCreatedBy")
+  txStaff          Transaction[]         @relation("TxStaff")
+  outgoingHandoffs CashierHandoff[]      @relation("HandoffOutgoing")
+  incomingHandoffs CashierHandoff[]      @relation("HandoffIncoming")
+  rakeReceived     RakeDistribution[]
+  accountClosesBy  SessionAccountClose[]
+}
+
+model UserCapabilityGrant {
+  id            String   @id @default(cuid())
+  user          User     @relation(fields: [userId], references: [id])
+  userId        String
+  capabilityKey String
+  mode          String // "grant" | "revoke"
+  grantedById   String
+  grantedAt     DateTime @default(now())
+  reason        String?
+
+  @@index([userId])
+}
+
+model Player {
+  id          String   @id @default(cuid())
+  displayName String
+  phone       String?
+  notes       String?
+  createdAt   DateTime @default(now())
+
+  transactions Transaction[]
+  markers      Marker[]
+}
+
+model Table {
+  id     String  @id @default(cuid())
+  name   String  @unique
+  gameId String?
+  game   Game?   @relation(fields: [gameId], references: [id])
+  stakes String?
+  active Boolean @default(true)
+
+  transactions Transaction[]
+}
+
+model Session {
+  id          String        @id @default(cuid())
+  status      SessionStatus @default(OPEN)
+  openedAt    DateTime      @default(now())
+  closedAt    DateTime?
+  openedById  String
+  openedBy    User          @relation("SessionOpenedBy", fields: [openedById], references: [id])
+  closedById  String?
+  closedBy    User?         @relation("SessionClosedBy", fields: [closedById], references: [id])
+  openingCash Decimal       @default(0) @db.Decimal(12, 2)
+  closingCash Decimal?      @db.Decimal(12, 2)
+  notes       String?
+
+  games             Game[]
+  transactions      Transaction[]
+  accountCloses     SessionAccountClose[]
+  rakeDistributions RakeDistribution[]
+  cashierHandoffs   CashierHandoff[]
+  markersIssued     Marker[]
+}
+
+model Game {
+  id              String     @id @default(cuid())
+  session         Session    @relation(fields: [sessionId], references: [id])
+  sessionId       String
+  name            String
+  gameType        String?
+  stakes          String?
+  rakeSplitConfig Json
+  status          GameStatus @default(OPEN)
+  openedAt        DateTime   @default(now())
+  closedAt        DateTime?
+
+  tables            Table[]
+  transactions      Transaction[]
+  ledgerEntries     LedgerEntry[]
+  rakeDistributions RakeDistribution[]
+}
+
+model Transaction {
+  id                  String          @id @default(cuid())
+  session             Session         @relation(fields: [sessionId], references: [id])
+  sessionId           String
+  game                Game?           @relation(fields: [gameId], references: [id])
+  gameId              String?
+  type                TransactionType
+  createdAt           DateTime        @default(now())
+  createdBy           User            @relation("TxCreatedBy", fields: [createdById], references: [id])
+  createdById         String
+  player              Player?         @relation(fields: [playerId], references: [id])
+  playerId            String?
+  staff               User?           @relation("TxStaff", fields: [staffId], references: [id])
+  staffId             String?
+  table               Table?          @relation(fields: [tableId], references: [id])
+  tableId             String?
+  amount              Decimal         @db.Decimal(12, 2)
+  method              PaymentMethod
+  note                String?
+  reverses            Transaction?    @relation("Reversal", fields: [reversesId], references: [id])
+  reversesId          String?
+  reversedBy          Transaction[]   @relation("Reversal")
+  pickupStatus        PickupStatus?
+  pickupConfirmedAt   DateTime?
+  pickupConfirmedById String?
+  pickupEscalatedAt   DateTime?
+  roundingAdjustment  Decimal?        @db.Decimal(12, 4) // for tip_house_tax
+
+  ledgerEntries LedgerEntry[]
+  marker        Marker?       @relation("MarkerIssueTx")
+
+  @@index([sessionId, createdAt])
+  @@index([playerId])
+  @@index([staffId])
+}
+
+model LedgerEntry {
+  id            String      @id @default(cuid())
+  transaction   Transaction @relation(fields: [transactionId], references: [id])
+  transactionId String
+  account       AccountType
+  game          Game?       @relation(fields: [gameId], references: [id])
+  gameId        String?
+  delta         Decimal     @db.Decimal(12, 2)
+  createdAt     DateTime    @default(now())
+
+  @@index([account, transactionId])
+  @@index([gameId, account])
+}
+
+model Marker {
+  id              String       @id @default(cuid())
+  player          Player       @relation(fields: [playerId], references: [id])
+  playerId        String
+  issuedInSession Session      @relation(fields: [sessionId], references: [id])
+  sessionId       String
+  issuedTx        Transaction  @relation("MarkerIssueTx", fields: [issuedTxId], references: [id])
+  issuedTxId      String       @unique
+  amount          Decimal      @db.Decimal(12, 2)
+  repaidAmount    Decimal      @default(0) @db.Decimal(12, 2)
+  status          MarkerStatus @default(OPEN)
+  collateral      String?
+  createdAt       DateTime     @default(now())
+
+  @@index([playerId, status])
+}
+
+model SessionAccountClose {
+  id          String      @id @default(cuid())
+  session     Session     @relation(fields: [sessionId], references: [id])
+  sessionId   String
+  account     AccountType
+  gameId      String?
+  expected    Decimal     @db.Decimal(12, 2)
+  counted     Decimal     @db.Decimal(12, 2)
+  variance    Decimal     @db.Decimal(12, 2)
+  countedBy   User        @relation(fields: [countedById], references: [id])
+  countedById String
+  countedAt   DateTime    @default(now())
+  note        String?
+
+  @@unique([sessionId, account, gameId])
+}
+
+model RakeDistribution {
+  id              String  @id @default(cuid())
+  session         Session @relation(fields: [sessionId], references: [id])
+  sessionId       String
+  game            Game    @relation(fields: [gameId], references: [id])
+  gameId          String
+  recipient       User    @relation(fields: [recipientUserId], references: [id])
+  recipientUserId String
+  amount          Decimal @db.Decimal(12, 2)
+  txId            String  @unique
+}
+
+model CashierHandoff {
+  id             String   @id @default(cuid())
+  session        Session  @relation(fields: [sessionId], references: [id])
+  sessionId      String
+  outgoing       User     @relation("HandoffOutgoing", fields: [outgoingUserId], references: [id])
+  outgoingUserId String
+  incoming       User     @relation("HandoffIncoming", fields: [incomingUserId], references: [id])
+  incomingUserId String
+  handedOffAt    DateTime @default(now())
+  accountCounts  Json
+  notes          String?
+}
+
+model SystemSettings {
+  id                    Int     @id @default(1)
+  defaultTipTaxRate     Decimal @default(0.20) @db.Decimal(5, 4)
+  pickupTimeoutSeconds  Int     @default(300)
+  rakeSplitDefaults     Json    @default("{}")
+  houseTaxSplitDefaults Json    @default("{}")
 }
