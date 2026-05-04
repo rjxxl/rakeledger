@@ -6,6 +6,7 @@ import { TransactionStream } from "./_components/transaction-stream";
 import { QuickActions } from "./_components/quick-actions";
 import { GameSwitcher } from "./_components/game-switcher";
 import { GameManager } from "./_components/game-manager";
+import { DropTracker } from "./_components/drop-tracker";
 
 interface PageProps {
   searchParams: Promise<{ game?: string }>;
@@ -80,6 +81,7 @@ export default async function LiveSessionPage({ searchParams }: PageProps) {
         <div className="flex flex-col gap-3 overflow-auto">
           <QuickActions sessionId={session.id} gameId={formGameId} />
           <GameManager sessionId={session.id} games={session.games} />
+          <DropTracker sessionId={session.id} />
         </div>
       </div>
     </div>
