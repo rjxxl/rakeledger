@@ -11,6 +11,8 @@ import { RakeDistributionStep } from "./_components/rake-distribution-step";
 import { WalksReturnsStep } from "./_components/walks-returns-step";
 import { getPlayersWithUnresolvedChips, getCandidateWalksForReturn } from "../_actions/walks";
 import { prisma } from "@/lib/db";
+import { runAllHeuristics } from "@/lib/reconciliation/heuristics";
+import { DivergenceFinder } from "./_components/divergence-finder";
 
 export default async function ClosePage() {
   const session = await getOpenSession();
@@ -97,6 +99,19 @@ export default async function ClosePage() {
   const candidatePlayers = await getPlayersWithUnresolvedChips(session.id);
   const candidateWalks = await getCandidateWalksForReturn(session.id);
 
+  const allTxs = await prisma.transaction.findMany({
+    where: { sessionId: session.id },
+    select: { id: true, amount: true, type: true, playerId: true, ledgerEntries: { select: { account: true, delta: true } } },
+  });
+  const allTxsLite = allTxs.map((t) => ({
+    id: t.id,
+    amount: new Decimal(t.amount.toString()),
+    type: t.type,
+    playerId: t.playerId,
+    ledgerEntries: t.ledgerEntries.map((e) => ({ account: e.account, delta: new Decimal(e.delta.toString()) })),
+  }));
+  const suggestions = runAllHeuristics([], allTxsLite);
+
   return (
     <div className="max-w-4xl flex flex-col gap-6 pb-12">
       <h2 className="text-lg font-semibold">Close Session</h2>
@@ -147,7 +162,12 @@ export default async function ClosePage() {
       </section>
 
       <section>
-        <h3 className="text-sm font-semibold text-slate-300 mb-2">Step 5 &mdash; Reconcile accounts &amp; close</h3>
+        <h3 className="text-sm font-semibold text-slate-300 mb-2">Step 5 &mdash; Pre-close diagnostics</h3>
+        <DivergenceFinder suggestions={suggestions} />
+      </section>
+
+      <section>
+        <h3 className="text-sm font-semibold text-slate-300 mb-2">Step 6 &mdash; Reconcile accounts &amp; close</h3>
         <p className="text-xs text-slate-500 mb-3">
           Count each account and enter the actual amount. Variances are recorded but allowed.
         </p>
