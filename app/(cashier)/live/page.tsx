@@ -4,9 +4,15 @@ import { Money } from "@/components/money";
 import { AccountStrip } from "./_components/account-strip";
 import { TransactionStream } from "./_components/transaction-stream";
 import { QuickActions } from "./_components/quick-actions";
+import { GameSwitcher } from "./_components/game-switcher";
 
-export default async function LiveSessionPage() {
+interface PageProps {
+  searchParams: Promise<{ game?: string }>;
+}
+
+export default async function LiveSessionPage({ searchParams }: PageProps) {
   const session = await getOpenSession();
+  const sp = await searchParams;
 
   if (!session) {
     return (
@@ -19,14 +25,8 @@ export default async function LiveSessionPage() {
         <form action={openSession} className="flex flex-col gap-3">
           <label className="flex flex-col text-sm text-slate-300 gap-1">
             <span>Opening cash float (optional)</span>
-            <input
-              type="number"
-              name="openingCash"
-              step="0.01"
-              min="0"
-              defaultValue="0"
-              className="bg-black/40 border border-[var(--color-border)] rounded px-3 py-2 text-white"
-            />
+            <input type="number" name="openingCash" step="0.01" min="0" defaultValue="0"
+              className="bg-black/40 border border-[var(--color-border)] rounded px-3 py-2 text-white" />
           </label>
           <button type="submit" className="bg-amber-500 text-black font-semibold rounded px-4 py-2 hover:bg-amber-400">
             Open Session
@@ -35,6 +35,23 @@ export default async function LiveSessionPage() {
       </div>
     );
   }
+
+  const requested = sp.game;
+  let activeGameId: string | "all";
+  if (requested === "all") {
+    activeGameId = "all";
+  } else if (requested && session.games.some((g) => g.id === requested)) {
+    activeGameId = requested;
+  } else if (session.games.length === 1) {
+    activeGameId = session.games[0].id;
+  } else {
+    activeGameId = "all";
+  }
+
+  const formGameId =
+    activeGameId === "all"
+      ? (session.games.find((g) => g.status === "OPEN") ?? session.games[0]).id
+      : activeGameId;
 
   return (
     <div className="flex flex-col h-[calc(100vh-2rem)] gap-3">
@@ -51,14 +68,16 @@ export default async function LiveSessionPage() {
         </Link>
       </header>
 
-      <AccountStrip sessionId={session.id} />
+      <GameSwitcher games={session.games} activeGameId={activeGameId} />
+
+      <AccountStrip sessionId={session.id} activeGameId={activeGameId} />
 
       <div className="grid grid-cols-[1fr_320px] gap-3 flex-1 min-h-0">
         <div className="overflow-auto">
-          <TransactionStream sessionId={session.id} />
+          <TransactionStream sessionId={session.id} activeGameId={activeGameId} />
         </div>
         <div className="flex flex-col gap-3 overflow-auto">
-          <QuickActions sessionId={session.id} gameId={session.games[0].id} />
+          <QuickActions sessionId={session.id} gameId={formGameId} />
         </div>
       </div>
     </div>

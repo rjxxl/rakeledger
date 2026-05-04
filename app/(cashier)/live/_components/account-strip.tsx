@@ -1,9 +1,11 @@
 import { Money } from "@/components/money";
 import { getAccountBalance } from "@/lib/ledger/balance";
+import { prisma } from "@/lib/db";
 import type { AccountType } from "@prisma/client";
 
 interface AccountStripProps {
   sessionId: string;
+  activeGameId: string | "all";
 }
 
 interface Tile {
@@ -11,33 +13,64 @@ interface Tile {
   label: string;
 }
 
-const tiles: Tile[] = [
+const SHARED_TILES: Tile[] = [
   { account: "CASH_DRAWER", label: "Cash drawer" },
   { account: "ZELLE", label: "Zelle" },
   { account: "VENMO", label: "Venmo" },
   { account: "CASHAPP", label: "CashApp" },
   { account: "APPLE_PAY", label: "Apple Pay" },
   { account: "CHIP_FLOAT", label: "Chip float" },
-  { account: "RAKE_POOL", label: "Rake pool" },
   { account: "TIP_POOL", label: "Tip pool" },
 ];
 
-export async function AccountStrip({ sessionId }: AccountStripProps) {
-  const balances = await Promise.all(
-    tiles.map(async (t) => ({
+const GAME_TILES: Tile[] = [
+  { account: "RAKE_POOL", label: "Rake" },
+  { account: "PROMO_POOL", label: "Promo" },
+  { account: "TOURNAMENT_POOL", label: "Tournament" },
+];
+
+export async function AccountStrip({ sessionId, activeGameId }: AccountStripProps) {
+  const games = await prisma.game.findMany({ where: { sessionId }, orderBy: { openedAt: "asc" } });
+
+  const sharedBalances = await Promise.all(
+    SHARED_TILES.map(async (t) => ({
       ...t,
       balance: await getAccountBalance({ account: t.account, sessionId }),
     }))
   );
 
+  const gameTilesToRender =
+    activeGameId === "all"
+      ? games.flatMap((g) =>
+          GAME_TILES.map((t) => ({
+            account: t.account,
+            label: `${t.label} · ${g.name}`,
+            gameId: g.id,
+          }))
+        )
+      : GAME_TILES.map((t) => ({
+          account: t.account,
+          label: t.label,
+          gameId: activeGameId,
+        }));
+
+  const gameBalances = await Promise.all(
+    gameTilesToRender.map(async (t) => ({
+      ...t,
+      balance: await getAccountBalance({ account: t.account, sessionId, gameId: t.gameId }),
+    }))
+  );
+
+  const allTiles = [...sharedBalances, ...gameBalances];
+
   return (
-    <div className="grid grid-cols-4 lg:grid-cols-8 gap-2 mb-4">
-      {balances.map((tile) => (
+    <div className="grid grid-cols-4 lg:grid-cols-8 gap-2">
+      {allTiles.map((tile, i) => (
         <div
-          key={tile.account}
+          key={`${tile.account}-${i}`}
           className="bg-[var(--color-panel)] border border-[var(--color-border)] rounded-md p-3"
         >
-          <div className="text-[0.65rem] uppercase tracking-wider text-slate-500">{tile.label}</div>
+          <div className="text-[0.65rem] uppercase tracking-wider text-slate-500 truncate">{tile.label}</div>
           <div className="font-mono tabular-nums text-base font-semibold mt-1">
             <Money amount={tile.balance.toString()} />
           </div>
