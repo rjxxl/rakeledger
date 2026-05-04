@@ -6,6 +6,9 @@ export default defineConfig({
     environment: "node",
     include: ["tests/unit/**/*.test.ts"],
     globals: true,
+    // DB-backed tests assume sole access to local Postgres — run serially to
+    // avoid TRUNCATE deadlocks and unique-constraint collisions between files.
+    fileParallelism: false,
   },
   resolve: {
     alias: {
