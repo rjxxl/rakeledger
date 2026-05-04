@@ -199,6 +199,12 @@ export async function repayMarker(formData: FormData): Promise<void> {
   if (!marker) throw new Error("Marker not found");
   if (marker.status !== "OPEN") throw new Error("Marker is not open");
 
+  // Guard against overpayment — a repayment can never exceed the remaining balance.
+  const remaining = new Decimal(marker.amount.toString()).sub(marker.repaidAmount.toString());
+  if (amount.greaterThan(remaining)) {
+    throw new Error(`Repayment ${amount.toString()} exceeds remaining marker balance ${remaining.toString()}`);
+  }
+
   const cashierId = await cashierUserId();
   const targetAccount = METHOD_TO_ACCOUNT[method];
 
