@@ -14,6 +14,14 @@ async function cashierUserId(): Promise<string> {
   return c.id;
 }
 
+async function ensureSessionOpen(sessionId: string): Promise<void> {
+  const s = await prisma.session.findUnique({ where: { id: sessionId } });
+  if (!s) throw new Error("Session not found");
+  if (s.status === "CLOSED") {
+    throw new Error("Cannot record transactions on a closed session.");
+  }
+}
+
 const METHOD_TO_ACCOUNT: Record<PaymentMethod, "CASH_DRAWER" | "ZELLE" | "VENMO" | "CASHAPP" | "APPLE_PAY"> = {
   CASH: "CASH_DRAWER",
   ZELLE: "ZELLE",
@@ -35,6 +43,7 @@ export async function recordBuyIn(formData: FormData): Promise<void> {
   if (!sessionId || !gameId || !playerId || amount.lessThanOrEqualTo(0)) {
     throw new Error("Missing or invalid buy_in input");
   }
+  await ensureSessionOpen(sessionId);
 
   const cashierId = await cashierUserId();
   const targetAccount = METHOD_TO_ACCOUNT[method];
@@ -68,6 +77,7 @@ export async function recordCashOut(formData: FormData): Promise<void> {
   if (!sessionId || !gameId || !playerId || amount.lessThanOrEqualTo(0)) {
     throw new Error("Cash-out requires a positive total");
   }
+  await ensureSessionOpen(sessionId);
 
   const cashierId = await cashierUserId();
   const targetAccount = METHOD_TO_ACCOUNT[method];
@@ -94,6 +104,7 @@ export async function recordRake(formData: FormData): Promise<void> {
   if (!sessionId || !gameId || amount.lessThanOrEqualTo(0)) {
     throw new Error("Rake requires a positive amount");
   }
+  await ensureSessionOpen(sessionId);
   const cashierId = await cashierUserId();
 
   await createTransaction({
@@ -119,6 +130,7 @@ export async function recordTipDrop(formData: FormData): Promise<void> {
   if (!sessionId || !gameId || !staffId || amount.lessThanOrEqualTo(0)) {
     throw new Error("Tip drop requires a recipient and a positive amount");
   }
+  await ensureSessionOpen(sessionId);
   const cashierId = await cashierUserId();
 
   await createTransaction({
@@ -144,6 +156,7 @@ export async function issueMarker(formData: FormData): Promise<void> {
   if (!sessionId || !gameId || !playerId || amount.lessThanOrEqualTo(0)) {
     throw new Error("Marker issue requires player and positive amount");
   }
+  await ensureSessionOpen(sessionId);
   const cashierId = await cashierUserId();
 
   const tx = await createTransaction({
@@ -181,6 +194,7 @@ export async function repayMarker(formData: FormData): Promise<void> {
   if (!sessionId || !gameId || !markerId || amount.lessThanOrEqualTo(0)) {
     throw new Error("Marker repay requires marker and positive amount");
   }
+  await ensureSessionOpen(sessionId);
   const marker = await prisma.marker.findUnique({ where: { id: markerId } });
   if (!marker) throw new Error("Marker not found");
   if (marker.status !== "OPEN") throw new Error("Marker is not open");
