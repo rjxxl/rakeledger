@@ -71,3 +71,60 @@ export function parseFormData<T extends z.ZodTypeAny>(schema: T, formData: FormD
   }
   return schema.parse(obj);
 }
+
+export const tournamentFeeSchema = z.object({
+  sessionId: z.string().min(1),
+  gameId: z.string().min(1),
+  playerId: z.string().min(1),
+  amount: z.string().regex(/^\d+(\.\d+)?$/, "Must be a positive decimal").refine((s) => parseFloat(s) > 0, "Must be > 0"),
+  method: methodEnum,
+});
+
+export const tournamentPayoutSchema = z.object({
+  sessionId: z.string().min(1),
+  gameId: z.string().min(1),
+  playerId: z.string().min(1),
+  amount: z.string().regex(/^\d+(\.\d+)?$/).refine((s) => parseFloat(s) > 0),
+  method: methodEnum,
+});
+
+export const jackpotPayoutSchema = z.object({
+  sessionId: z.string().min(1),
+  gameId: z.string().min(1),
+  playerId: z.string().min(1),
+  amount: z.string().regex(/^\d+(\.\d+)?$/).refine((s) => parseFloat(s) > 0),
+  paidIn: z.enum(["CHIPS", "CASH"]),
+  reason: z.string().min(1).max(100),
+});
+
+export const freerollPrizeSchema = z.object({
+  sessionId: z.string().min(1),
+  gameId: z.string().min(1),
+  playerId: z.string().min(1),
+  amount: z.string().regex(/^\d+(\.\d+)?$/).refine((s) => parseFloat(s) > 0),
+  freerollName: z.string().max(80).optional(),
+});
+
+export const staffAdvanceSchema = z.object({
+  sessionId: z.string().min(1),
+  gameId: z.string().min(1),
+  staffId: z.string().min(1),
+  amount: z.string().regex(/^\d+(\.\d+)?$/).refine((s) => parseFloat(s) > 0),
+  note: z.string().min(1).max(200),
+});
+
+export const fnbCostSchema = z.object({
+  sessionId: z.string().min(1),
+  gameId: z.string().min(1),
+  amount: z.string().regex(/^\d+(\.\d+)?$/).refine((s) => parseFloat(s) > 0),
+  note: z.string().min(1).max(200),
+});
+
+export const drawerAdjustSchema = z.object({
+  sessionId: z.string().min(1),
+  gameId: z.string().min(1),
+  amount: z.string().regex(/^-?\d+(\.\d+)?$/, "Must be a signed decimal").refine((s) => parseFloat(s) !== 0, "Cannot be zero"),
+  note: z.string().min(1).max(200),
+});
+
+export const chipFloatAdjustSchema = drawerAdjustSchema;
