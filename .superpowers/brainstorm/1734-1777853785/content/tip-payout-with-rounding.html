@@ -1,0 +1,239 @@
+<h2>Tip payout — with rounding arrows + admin panel snippet</h2>
+<p class="subtitle">No coins on premises → whole-dollar payouts only. Tax defaults to nearest dollar; cashier can nudge.</p>
+
+<style>
+  .panel { background: #0f0f0f; border: 1px solid #1f1f1f; border-radius: 8px; padding: 1.25rem; margin-top: 1rem; }
+  .panel h4 { margin: 0 0 0.5rem 0; color: #e2e8f0; font-size: 1rem; }
+  .panel .desc { margin: 0 0 1rem 0; color: #94a3b8; font-size: 0.85rem; }
+
+  table.payout { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  table.payout thead tr { background: rgba(245, 158, 11, 0.08); color: #f59e0b; }
+  table.payout th { padding: 0.5rem 0.7rem; text-align: left; border-bottom: 1px solid #2a2a2a; font-size: 0.78rem; font-weight: 600; }
+  table.payout th.num { text-align: right; }
+  table.payout td { padding: 0.5rem 0.7rem; border-bottom: 1px solid #1a1a1a; font-family: ui-monospace, monospace; }
+  table.payout td.name { font-family: inherit; color: #e2e8f0; }
+  table.payout td.num { text-align: right; }
+  table.payout td.calc { color: #64748b; font-size: 0.78rem; text-align: right; }
+  table.payout td.tax { color: #22d3ee; font-weight: 600; }
+  table.payout td.net { color: #4ade80; font-weight: 600; }
+  table.payout tfoot tr { background: rgba(255,255,255,0.03); font-weight: 600; }
+  table.payout tfoot td { border-bottom: none; padding: 0.7rem; }
+
+  .rounder { display: inline-flex; align-items: center; gap: 0.25rem; }
+  .rounder .arrow { background: #1a1a1a; border: 1px solid #2a2a2a; color: #cbd5e1; width: 22px; height: 22px; border-radius: 4px; display: inline-flex; align-items: center; justify-content: center; font-size: 0.7rem; cursor: pointer; line-height: 1; padding: 0; }
+  .rounder .arrow:hover { border-color: #f59e0b; color: #f59e0b; background: rgba(245, 158, 11, 0.08); }
+  .rounder .val { min-width: 56px; text-align: right; }
+  .rounder.adjusted .val { color: #f59e0b; }
+  .rounder .badge { font-size: 0.65rem; color: #f59e0b; margin-left: 0.25rem; }
+
+  .confirm-btn { background: #f59e0b; color: #0a0a0a; border: none; padding: 0.3rem 0.6rem; border-radius: 4px; font-size: 0.72rem; font-weight: 600; cursor: pointer; }
+
+  /* Admin panel snippet */
+  .admin-snippet { display: grid; grid-template-columns: 220px 1fr; gap: 0; margin-top: 1.5rem; background: #0a0a0a; border: 1px solid #2a2a2a; border-radius: 8px; overflow: hidden; }
+  .admin-side { background: #0f0f0f; border-right: 1px solid #1f1f1f; padding: 0.85rem; font-size: 0.82rem; }
+  .admin-side h5 { margin: 0 0 0.5rem 0; color: #f59e0b; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; }
+  .admin-side .item { padding: 0.4rem 0.6rem; color: #94a3b8; border-radius: 4px; }
+  .admin-side .item.active { background: rgba(245, 158, 11, 0.1); color: #f59e0b; }
+  .admin-main { padding: 1rem 1.25rem; }
+  .admin-main h5 { margin: 0 0 0.25rem 0; color: #e2e8f0; }
+  .admin-main .crumbs { color: #64748b; font-size: 0.75rem; margin-bottom: 1rem; }
+  .form-section { background: #0f0f0f; border: 1px solid #1f1f1f; border-radius: 6px; padding: 1rem; margin-bottom: 0.75rem; }
+  .form-section h6 { margin: 0 0 0.75rem 0; color: #f59e0b; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; }
+  .form-row { display: grid; grid-template-columns: 180px 1fr; gap: 1rem; margin-bottom: 0.6rem; align-items: center; }
+  .form-row label { font-size: 0.82rem; color: #cbd5e1; }
+  .form-row input[type="text"], .form-row input[type="email"], .form-row input[type="number"] { background: #1a1a1a; border: 1px solid #2a2a2a; color: #e2e8f0; padding: 0.45rem 0.7rem; border-radius: 4px; font-size: 0.85rem; width: 100%; max-width: 280px; box-sizing: border-box; font-family: inherit; }
+  .form-row .hint { font-size: 0.72rem; color: #64748b; margin-top: 0.25rem; }
+  .form-row .checkbox { display: flex; align-items: center; gap: 0.4rem; font-size: 0.82rem; color: #cbd5e1; }
+</style>
+
+<div class="panel">
+  <h4>Pay out tips (close-out flow)</h4>
+  <p class="desc">Calculated tax shown as small grey value. Bold cyan tax = the rounded amount the system will record. Use ▲▼ to nudge by $1.</p>
+
+  <table class="payout">
+    <thead>
+      <tr>
+        <th>Staff</th>
+        <th class="num">Tip pool</th>
+        <th class="num">Rate</th>
+        <th class="num">Calc'd tax</th>
+        <th class="num">House tax (rounded)</th>
+        <th class="num">Net to staff</th>
+        <th class="num">Method</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+
+      <tr>
+        <td class="name">Dealer Jake</td>
+        <td class="num">$87.00</td>
+        <td class="num">20%</td>
+        <td class="calc">$17.40</td>
+        <td class="tax">
+          <span class="rounder">
+            <button class="arrow">▲</button>
+            <span class="val">$17</span>
+            <button class="arrow">▼</button>
+          </span>
+        </td>
+        <td class="net">$70</td>
+        <td class="num" style="font-family:inherit; color:#cbd5e1; font-size:0.78rem;">cash</td>
+        <td class="num"><button class="confirm-btn">Confirm</button></td>
+      </tr>
+
+      <tr>
+        <td class="name">Dealer Anna</td>
+        <td class="num">$54.00</td>
+        <td class="num">20%</td>
+        <td class="calc">$10.80</td>
+        <td class="tax">
+          <span class="rounder">
+            <button class="arrow">▲</button>
+            <span class="val">$11</span>
+            <button class="arrow">▼</button>
+          </span>
+        </td>
+        <td class="net">$43</td>
+        <td class="num" style="font-family:inherit; color:#cbd5e1; font-size:0.78rem;">cash</td>
+        <td class="num"><button class="confirm-btn">Confirm</button></td>
+      </tr>
+
+      <tr>
+        <td class="name">Dealer Bo <span style="color:#f59e0b; font-size:0.7rem;">(15%)</span></td>
+        <td class="num">$120.00</td>
+        <td class="num">15%</td>
+        <td class="calc">$18.00</td>
+        <td class="tax">
+          <span class="rounder">
+            <button class="arrow">▲</button>
+            <span class="val">$18</span>
+            <button class="arrow">▼</button>
+          </span>
+        </td>
+        <td class="net">$102</td>
+        <td class="num" style="font-family:inherit; color:#cbd5e1; font-size:0.78rem;">zelle</td>
+        <td class="num"><button class="confirm-btn">Confirm</button></td>
+      </tr>
+
+      <tr>
+        <td class="name">Waitress Lila</td>
+        <td class="num">$35.00</td>
+        <td class="num">20%</td>
+        <td class="calc">$7.00</td>
+        <td class="tax">
+          <span class="rounder">
+            <button class="arrow">▲</button>
+            <span class="val">$7</span>
+            <button class="arrow">▼</button>
+          </span>
+        </td>
+        <td class="net">$28</td>
+        <td class="num" style="font-family:inherit; color:#cbd5e1; font-size:0.78rem;">cash</td>
+        <td class="num"><button class="confirm-btn">Confirm</button></td>
+      </tr>
+
+      <tr>
+        <td class="name">Waitress Pia</td>
+        <td class="num">$22.00</td>
+        <td class="num">20%</td>
+        <td class="calc">$4.40</td>
+        <td class="tax">
+          <span class="rounder adjusted">
+            <button class="arrow">▲</button>
+            <span class="val">$5 <span class="badge">+$0.60</span></span>
+            <button class="arrow">▼</button>
+          </span>
+        </td>
+        <td class="net">$17</td>
+        <td class="num" style="font-family:inherit; color:#cbd5e1; font-size:0.78rem;">cashapp</td>
+        <td class="num"><button class="confirm-btn">Confirm</button></td>
+      </tr>
+
+    </tbody>
+    <tfoot>
+      <tr>
+        <td class="name">Totals</td>
+        <td class="num">$318.00</td>
+        <td></td>
+        <td class="calc">$57.60 calc</td>
+        <td class="tax">$58 actual</td>
+        <td class="net">$260</td>
+        <td colspan="2"></td>
+      </tr>
+    </tfoot>
+  </table>
+
+  <p style="margin-top:1rem; font-size:0.8rem; color:#94a3b8;">
+    Each Confirm records two transactions: <code>tip_house_tax</code> (tip_pool → house_tax_pool) and <code>tip_payout</code> (tip_pool → cash_drawer/method). Rounding deltas are stored as <code>rounding_adjustment</code> on the tax tx — visible later in the owner dashboard ("rounding earned the house +$0.40 tonight").
+  </p>
+</div>
+
+<!-- Admin panel snippet showing where tip_tax_rate is configured -->
+<h3 style="margin-top:2rem">Where the tax rate is configured (admin panel snippet)</h3>
+
+<div class="admin-snippet">
+  <aside class="admin-side">
+    <h5>Admin</h5>
+    <div class="item">Roles &amp; capabilities</div>
+    <div class="item active">Users</div>
+    <div class="item">Pending approvals (2)</div>
+    <div class="item">Tables &amp; games</div>
+    <div class="item">System settings</div>
+    <div class="item">Rake &amp; tax distribution</div>
+  </aside>
+
+  <div class="admin-main">
+    <h5>Edit user — Dealer Bo</h5>
+    <div class="crumbs">Admin · Users · Bo Hwang</div>
+
+    <div class="form-section">
+      <h6>Identity</h6>
+      <div class="form-row">
+        <label>Display name</label>
+        <input type="text" value="Bo Hwang">
+      </div>
+      <div class="form-row">
+        <label>Email (Google)</label>
+        <input type="email" value="bo.hwang@gmail.com" readonly style="color:#64748b;">
+      </div>
+      <div class="form-row">
+        <label>Role</label>
+        <select style="background:#1a1a1a;border:1px solid #2a2a2a;color:#e2e8f0;padding:0.45rem 0.7rem;border-radius:4px;font-size:0.85rem;width:100%;max-width:280px;">
+          <option>Cashier</option>
+          <option>Runner</option>
+          <option selected>Dealer (custom role)</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="form-section" style="border-color: rgba(245, 158, 11, 0.3); background: rgba(245, 158, 11, 0.03);">
+      <h6 style="color:#f59e0b;">⚡ Compensation &amp; tax</h6>
+      <div class="form-row">
+        <label>Tip tax rate</label>
+        <div>
+          <div style="display:flex;align-items:center;gap:0.5rem;">
+            <input type="number" value="15" step="1" min="0" max="100" style="max-width:80px;">
+            <span style="color:#94a3b8;font-size:0.85rem;">%</span>
+            <span style="color:#64748b;font-size:0.78rem;">(system default: 20%)</span>
+          </div>
+          <div class="checkbox" style="margin-top:0.4rem;">
+            <input type="checkbox" id="usedef" style="margin:0;">
+            <label for="usedef" style="font-size:0.78rem;color:#94a3b8;">Use system default rate</label>
+          </div>
+          <div class="hint">Applied to tip payouts at end of night. Changes take effect on next session.</div>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <label>Notes</label>
+        <input type="text" value="Long-tenured, negotiated rate 2025" style="max-width:360px;">
+      </div>
+    </div>
+
+    <div style="display:flex;gap:0.5rem;justify-content:flex-end;margin-top:1rem;">
+      <button style="background:transparent;color:#cbd5e1;border:1px solid #334155;padding:0.45rem 0.9rem;border-radius:6px;font-weight:600;font-size:0.85rem;">Cancel</button>
+      <button style="background:#f59e0b;color:#0a0a0a;border:none;padding:0.45rem 0.9rem;border-radius:6px;font-weight:600;font-size:0.85rem;">Save changes</button>
+    </div>
+  </div>
+</div>

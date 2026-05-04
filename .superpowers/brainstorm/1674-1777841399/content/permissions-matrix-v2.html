@@ -1,0 +1,104 @@
+<h2>Section 4 — Roles &amp; Capabilities (v2, final)</h2>
+<p class="subtitle">Collapsed Host into Runner. Dropped comps.fnb. 4 roles total.</p>
+
+<style>
+  .roles-key { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.75rem; font-size: 0.78rem; }
+  .roles-key span { background: rgba(245, 158, 11, 0.08); padding: 0.2rem 0.6rem; border-radius: 4px; border: 1px solid #444; }
+  .matrix { width: 100%; border-collapse: collapse; margin-top: 1rem; font-size: 0.85rem; }
+  .matrix th, .matrix td { border: 1px solid #2f2f2f; padding: 0.4rem 0.6rem; text-align: left; }
+  .matrix th { background: rgba(245, 158, 11, 0.08); color: #f59e0b; font-weight: 600; }
+  .matrix th.role { text-align: center; min-width: 80px; }
+  .matrix td.role { text-align: center; font-family: ui-monospace, monospace; font-weight: 700; }
+  .matrix td.role.yes { color: #22c55e; }
+  .matrix td.role.no { color: #475569; }
+  .matrix td.role.limit { color: #f59e0b; font-size: 0.75rem; }
+  .matrix tr.section td { background: rgba(255,255,255,0.03); color: #f59e0b; font-weight: 600; text-transform: uppercase; font-size: 0.72rem; letter-spacing: 0.05em; }
+  .matrix .cap { font-family: ui-monospace, monospace; font-size: 0.78rem; color: #cbd5e1; }
+  .matrix .desc { color: #94a3b8; font-size: 0.78rem; }
+
+  .panel { background: rgba(255,255,255,0.03); border-left: 3px solid #f59e0b; padding: 0.75rem 1rem; border-radius: 6px; margin-top: 1.25rem; font-size: 0.85rem; }
+  .panel strong { color: #f59e0b; }
+
+  .changes { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.5rem; }
+  .changes span { background: rgba(34, 211, 238, 0.08); padding: 0.2rem 0.6rem; border-radius: 4px; border: 1px solid #22d3ee; color: #22d3ee; font-size: 0.78rem; }
+</style>
+
+<div class="changes">
+  <span>– Host role collapsed into Runner</span>
+  <span>– comps.fnb removed (YAGNI)</span>
+  <span>– Default opening balance = $0</span>
+</div>
+
+<div class="roles-key">
+  <span><strong>👑 Owner</strong> — irrevocable, full access</span>
+  <span><strong>🛠 Admin</strong> — manages roles &amp; users</span>
+  <span><strong>💰 Cashier</strong> — drives the cage</span>
+  <span><strong>🏃 Runner</strong> — floor + pickup workflow</span>
+</div>
+
+<table class="matrix">
+  <thead>
+    <tr>
+      <th>Capability</th>
+      <th>Description</th>
+      <th class="role">Owner</th>
+      <th class="role">Admin</th>
+      <th class="role">Cashier</th>
+      <th class="role">Runner</th>
+    </tr>
+  </thead>
+  <tbody>
+
+    <tr class="section"><td colspan="6">Sessions</td></tr>
+    <tr><td class="cap">sessions.open</td><td class="desc">Open a new night session</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role no">—</td></tr>
+    <tr><td class="cap">sessions.close</td><td class="desc">Reconcile and close a session</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role no">—</td></tr>
+    <tr><td class="cap">sessions.handoff_initiate</td><td class="desc">Hand off cashier role mid-session</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role no">—</td></tr>
+    <tr><td class="cap">sessions.handoff_receive</td><td class="desc">Receive a cashier handoff</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td></tr>
+
+    <tr class="section"><td colspan="6">Transactions (cage-side)</td></tr>
+    <tr><td class="cap">transactions.buyin.create</td><td class="desc">Record a buy-in at the cage</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role no">—</td></tr>
+    <tr><td class="cap">transactions.cashout.create</td><td class="desc">Record a cash-out at the cage</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role no">—</td></tr>
+    <tr><td class="cap">transactions.tip_payout.create</td><td class="desc">Pay out tips at end of night</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role no">—</td></tr>
+    <tr><td class="cap">transactions.rake.distribute</td><td class="desc">Distribute rake to runners/hosts</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td></tr>
+    <tr><td class="cap">transactions.correct</td><td class="desc">Issue a reversal/correction transaction</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role no">—</td></tr>
+
+    <tr class="section"><td colspan="6">Pickup workflow</td></tr>
+    <tr><td class="cap">pickup.create</td><td class="desc">Initiate a runner pickup from a player</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td></tr>
+    <tr><td class="cap">pickup.confirm</td><td class="desc">Confirm receipt of pickup at the cage</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role no">—</td></tr>
+
+    <tr class="section"><td colspan="6">Markers</td></tr>
+    <tr><td class="cap">markers.issue</td><td class="desc">Issue a marker to a player</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role limit">≤ $500</td></tr>
+    <tr><td class="cap">markers.repay</td><td class="desc">Record marker repayment</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td></tr>
+    <tr><td class="cap">markers.write_off</td><td class="desc">Write off an unpaid marker</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role no">—</td><td class="role no">—</td></tr>
+
+    <tr class="section"><td colspan="6">Players &amp; tables</td></tr>
+    <tr><td class="cap">players.create</td><td class="desc">Add a new player profile</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td></tr>
+    <tr><td class="cap">players.edit</td><td class="desc">Edit player profile (name, phone, notes)</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td></tr>
+    <tr><td class="cap">players.view_history</td><td class="desc">View a player's full transaction history</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td></tr>
+    <tr><td class="cap">tables.manage</td><td class="desc">Open/close tables, change game type/stakes</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td></tr>
+
+    <tr class="section"><td colspan="6">Reporting &amp; insights</td></tr>
+    <tr><td class="cap">dashboards.view</td><td class="desc">View business dashboards (revenue, trends)</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role no">—</td><td class="role no">—</td></tr>
+    <tr><td class="cap">dashboards.view_self</td><td class="desc">View own performance dashboard</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td></tr>
+    <tr><td class="cap">reports.export</td><td class="desc">Export CSV / accounting reports</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role no">—</td><td class="role no">—</td></tr>
+
+    <tr class="section"><td colspan="6">User &amp; system administration</td></tr>
+    <tr><td class="cap">users.approve</td><td class="desc">Approve new pending Google sign-ups</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role no">—</td><td class="role no">—</td></tr>
+    <tr><td class="cap">users.create</td><td class="desc">Manually create users (bypass Google flow)</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role no">—</td><td class="role no">—</td></tr>
+    <tr><td class="cap">users.edit</td><td class="desc">Edit user profiles, disable users</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role no">—</td><td class="role no">—</td></tr>
+    <tr><td class="cap">users.edit_permissions</td><td class="desc">Modify roles, capabilities, per-user grants</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role no">—</td><td class="role no">—</td></tr>
+    <tr><td class="cap">system.settings</td><td class="desc">Configure pickup timeout, rake split, etc.</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role no">—</td><td class="role no">—</td></tr>
+    <tr><td class="cap">system.transfer_ownership</td><td class="desc">Transfer Owner role to another user</td><td class="role yes">✓</td><td class="role no">—</td><td class="role no">—</td><td class="role no">—</td></tr>
+
+  </tbody>
+</table>
+
+<div class="panel">
+  <strong>Session-open behavior (updated):</strong>
+  <ul style="margin: 0.5rem 0 0 1.2rem; line-height: 1.6;">
+    <li>All account balances start at <strong>$0</strong> when a session opens.</li>
+    <li>Cashier can optionally enter a <em>starting float</em> (e.g., $500 in small bills for change). Recorded as <code>Session.opening_cash</code> + an opening transaction.</li>
+    <li>At close-out, the float is recovered before final reconciliation; <code>Session.closing_cash</code> is recorded.</li>
+    <li>Sessions are now fully self-contained — no cross-session coupling. Tonight's books don't depend on what last night left in the drawer.</li>
+  </ul>
+</div>

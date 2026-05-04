@@ -1,0 +1,171 @@
+<h2>Runner — mobile pickup flow</h2>
+<p class="subtitle">Three-screen flow on the runner's phone, used while standing at the table.</p>
+
+<style>
+  .phones { display: flex; gap: 1.5rem; justify-content: center; flex-wrap: wrap; margin-top: 1rem; }
+  .phone { width: 280px; height: 580px; background: #0a0a0a; border: 8px solid #1a1a1a; border-radius: 32px; overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 0 0 1px #2a2a2a; }
+  .phone-header { background: #0f0f0f; padding: 0.75rem 1rem; border-bottom: 1px solid #1f1f1f; }
+  .phone-title { font-size: 0.85rem; font-weight: 600; color: #f59e0b; }
+  .phone-sub { font-size: 0.7rem; color: #64748b; }
+  .phone-body { flex: 1; overflow: auto; padding: 1rem; display: flex; flex-direction: column; gap: 0.75rem; }
+  .phone-tabbar { background: #0f0f0f; border-top: 1px solid #1f1f1f; display: flex; padding: 0.5rem; gap: 0.25rem; }
+  .phone-tabbar .tab { flex: 1; padding: 0.5rem; font-size: 0.68rem; color: #64748b; text-align: center; border-radius: 6px; }
+  .phone-tabbar .tab.active { background: rgba(245, 158, 11, 0.15); color: #f59e0b; }
+  .phone-label { text-align: center; color: #94a3b8; font-size: 0.85rem; margin-top: 0.5rem; }
+
+  .pickup-cta { background: #f59e0b; color: #0a0a0a; border: none; padding: 1.2rem; border-radius: 12px; font-weight: 700; font-size: 1.1rem; cursor: pointer; text-align: center; }
+
+  .field { display: flex; flex-direction: column; gap: 0.3rem; }
+  .field label { font-size: 0.72rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; }
+  .field input, .field select { background: #1a1a1a; border: 1px solid #2a2a2a; color: #e2e8f0; padding: 0.7rem 0.85rem; border-radius: 6px; font-size: 0.9rem; font-family: inherit; }
+  .field .player-pill { background: rgba(245, 158, 11, 0.1); border: 1px solid #f59e0b; color: #f59e0b; padding: 0.5rem 0.75rem; border-radius: 6px; font-size: 0.85rem; display: flex; justify-content: space-between; align-items: center; }
+  .field .player-pill .change { font-size: 0.7rem; color: #94a3b8; }
+
+  .amount-display { font-family: monospace; font-size: 2.2rem; color: #e2e8f0; text-align: center; padding: 0.5rem; background: #1a1a1a; border-radius: 8px; font-weight: 600; }
+
+  .keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.4rem; }
+  .keypad button { background: #1a1a1a; border: 1px solid #2a2a2a; color: #e2e8f0; padding: 0.85rem; border-radius: 6px; font-size: 1.1rem; font-weight: 600; cursor: pointer; }
+
+  .method-pills { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+  .method-pills .pill { background: #1a1a1a; border: 1px solid #2a2a2a; color: #cbd5e1; padding: 0.4rem 0.7rem; border-radius: 9999px; font-size: 0.78rem; }
+  .method-pills .pill.active { background: rgba(245, 158, 11, 0.15); color: #f59e0b; border-color: #f59e0b; }
+
+  .submit { background: #f59e0b; color: #0a0a0a; border: none; padding: 1rem; border-radius: 8px; font-weight: 700; font-size: 0.95rem; cursor: pointer; margin-top: auto; }
+
+  .pending-screen { text-align: center; padding-top: 1rem; }
+  .pending-icon { font-size: 4rem; margin-bottom: 1rem; }
+  .pending-title { color: #ef4444; font-weight: 600; font-size: 1rem; }
+  .pending-detail { color: #94a3b8; font-size: 0.82rem; margin-top: 0.5rem; line-height: 1.5; }
+  .pending-timer { font-family: monospace; font-size: 2rem; color: #fca5a5; margin: 1rem 0; }
+  .pending-progress { height: 6px; background: #1a1a1a; border-radius: 9999px; overflow: hidden; margin-top: 0.5rem; }
+  .pending-progress-fill { height: 100%; background: #ef4444; width: 35%; }
+
+  .freeroll-banner { background: rgba(34, 211, 238, 0.08); border: 1px solid #22d3ee; border-radius: 6px; padding: 0.6rem 0.7rem; font-size: 0.72rem; color: #22d3ee; }
+</style>
+
+<div class="phones">
+
+  <!-- Phone 1: home -->
+  <div>
+    <div class="phone">
+      <div class="phone-header">
+        <div class="phone-title">♠ CageRoom</div>
+        <div class="phone-sub">Sara · runner</div>
+      </div>
+      <div class="phone-body">
+        <button class="pickup-cta">＋ New Pickup</button>
+
+        <div style="background:#0f0f0f; border:1px solid #1f1f1f; border-radius:8px; padding:0.75rem;">
+          <div style="font-size:0.72rem; color:#64748b; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:0.4rem;">Your active pickups</div>
+          <div style="font-size:0.78rem; color:#94a3b8; line-height:1.5;">
+            <div style="display:flex;justify-content:space-between;padding:0.3rem 0;border-bottom:1px solid #1a1a1a;">
+              <span>Player W · $400</span><span style="color:#fca5a5;font-family:monospace;">⏱1:24</span>
+            </div>
+          </div>
+        </div>
+
+        <div style="background:#0f0f0f; border:1px solid #1f1f1f; border-radius:8px; padding:0.75rem;">
+          <div style="font-size:0.72rem; color:#64748b; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:0.4rem;">Your tonight</div>
+          <div style="font-size:0.78rem; color:#cbd5e1; line-height:1.6;">
+            <div>9 pickups completed</div>
+            <div>$3,275 in motion</div>
+            <div>0 escalations</div>
+          </div>
+        </div>
+      </div>
+      <div class="phone-tabbar">
+        <div class="tab active">Pickup</div>
+        <div class="tab">Players</div>
+        <div class="tab">Tables</div>
+        <div class="tab">Me</div>
+      </div>
+    </div>
+    <div class="phone-label">1. Home — one big button</div>
+  </div>
+
+  <!-- Phone 2: pickup form -->
+  <div>
+    <div class="phone">
+      <div class="phone-header">
+        <div class="phone-title">＋ New Pickup</div>
+        <div class="phone-sub">Recording cash from a player</div>
+      </div>
+      <div class="phone-body">
+
+        <div class="field">
+          <label>Player</label>
+          <div class="player-pill"><span>Player W (regular)</span><span class="change">change</span></div>
+        </div>
+
+        <div class="freeroll-banner">
+          ⚡ Player W has $225 in unredeemed freeroll chips. Only enter the cash they're handing you.
+        </div>
+
+        <div class="field">
+          <label>Table</label>
+          <div class="player-pill" style="background:#1a1a1a;border-color:#2a2a2a;color:#cbd5e1;"><span>Table 3 · 1/2 NL</span><span class="change">change</span></div>
+        </div>
+
+        <div class="field">
+          <label>Amount</label>
+          <div class="amount-display">$275</div>
+        </div>
+
+        <div class="keypad">
+          <button>1</button><button>2</button><button>3</button>
+          <button>4</button><button>5</button><button>6</button>
+          <button>7</button><button>8</button><button>9</button>
+          <button>00</button><button>0</button><button>⌫</button>
+        </div>
+
+        <div class="field">
+          <label>Method</label>
+          <div class="method-pills">
+            <span class="pill active">cash</span>
+            <span class="pill">zelle</span>
+            <span class="pill">venmo</span>
+            <span class="pill">cashapp</span>
+            <span class="pill">apple</span>
+            <span class="pill">other</span>
+          </div>
+        </div>
+
+        <button class="submit">Confirm pickup → walk to cage</button>
+      </div>
+    </div>
+    <div class="phone-label">2. Pickup form — note the freeroll banner</div>
+  </div>
+
+  <!-- Phone 3: pending confirmation -->
+  <div>
+    <div class="phone">
+      <div class="phone-header">
+        <div class="phone-title">⏱ Pickup pending</div>
+        <div class="phone-sub">Waiting for cashier to confirm</div>
+      </div>
+      <div class="phone-body pending-screen">
+        <div class="pending-icon">💵</div>
+        <div class="pending-title">$275 cash · Player W</div>
+        <div class="pending-detail">
+          You're holding the cash.<br>Walk to the cage and hand it to Maria.<br>The system has logged it as in your custody.
+        </div>
+
+        <div class="pending-timer">3:14</div>
+        <div class="pending-progress"><div class="pending-progress-fill"></div></div>
+        <div style="font-size:0.7rem; color:#64748b; margin-top:0.5rem;">Auto-escalates to owner if unconfirmed in 5:00</div>
+
+        <div style="margin-top:1.5rem; display:flex; flex-direction:column; gap:0.5rem;">
+          <button class="submit" style="background:#1a1a1a; color:#fca5a5; border:1px solid #7f1d1d;">Cancel pickup (return cash)</button>
+        </div>
+      </div>
+      <div class="phone-tabbar">
+        <div class="tab active">Pickup</div>
+        <div class="tab">Players</div>
+        <div class="tab">Tables</div>
+        <div class="tab">Me</div>
+      </div>
+    </div>
+    <div class="phone-label">3. Pending state with timer</div>
+  </div>
+
+</div>

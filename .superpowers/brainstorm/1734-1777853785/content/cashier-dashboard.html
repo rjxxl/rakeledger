@@ -1,0 +1,243 @@
+<h2>Cashier — Live Session view (desktop)</h2>
+<p class="subtitle">The screen the cashier lives in all night. ~1280px wide on the cage computer.</p>
+
+<style>
+  .app-frame { display: grid; grid-template-columns: 220px 1fr; min-height: 600px; background: #0a0a0a; border: 1px solid #2a2a2a; border-radius: 8px; overflow: hidden; margin-top: 1rem; }
+
+  /* SIDEBAR */
+  .sidebar { background: #0f0f0f; border-right: 1px solid #1f1f1f; padding: 1rem; }
+  .sidebar .brand { font-weight: 700; color: #f59e0b; font-size: 1rem; margin-bottom: 1.25rem; padding-bottom: 0.75rem; border-bottom: 1px solid #1f1f1f; }
+  .sidebar .nav-item { display: flex; align-items: center; gap: 0.6rem; padding: 0.5rem 0.6rem; border-radius: 4px; color: #cbd5e1; font-size: 0.85rem; margin-bottom: 0.15rem; cursor: pointer; }
+  .sidebar .nav-item.active { background: rgba(245, 158, 11, 0.12); color: #f59e0b; }
+  .sidebar .nav-item .icon { font-size: 1rem; }
+  .sidebar .nav-divider { height: 1px; background: #1f1f1f; margin: 0.75rem 0; }
+  .sidebar .session-pill { background: rgba(34, 197, 94, 0.1); border: 1px solid #14532d; color: #4ade80; padding: 0.4rem 0.6rem; border-radius: 6px; font-size: 0.72rem; margin-top: 0.5rem; text-align: center; }
+  .sidebar .user-chip { margin-top: auto; padding: 0.5rem; border-top: 1px solid #1f1f1f; padding-top: 0.75rem; display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem; color: #94a3b8; }
+  .sidebar .user-chip .avatar { width: 28px; height: 28px; border-radius: 50%; background: #f59e0b; color: #0a0a0a; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.78rem; }
+
+  /* MAIN */
+  .main { padding: 1rem 1.25rem; display: grid; grid-template-rows: auto auto 1fr; gap: 1rem; }
+
+  /* HEADER STRIP */
+  .header-strip { display: grid; grid-template-columns: 1fr auto; gap: 1rem; align-items: center; }
+  .session-title { font-size: 1.05rem; font-weight: 600; color: #e2e8f0; }
+  .session-title .meta { color: #64748b; font-weight: 400; font-size: 0.85rem; margin-left: 0.5rem; }
+  .header-actions { display: flex; gap: 0.5rem; }
+  .btn { background: #f59e0b; color: #0a0a0a; border: none; padding: 0.55rem 1rem; border-radius: 6px; font-weight: 600; font-size: 0.85rem; cursor: pointer; }
+  .btn.ghost { background: transparent; color: #cbd5e1; border: 1px solid #334155; }
+  .btn.danger { background: transparent; color: #ef4444; border: 1px solid #7f1d1d; }
+
+  /* ACCOUNTS STRIP */
+  .accounts { display: grid; grid-template-columns: repeat(6, 1fr); gap: 0.75rem; }
+  .acct { background: #0f0f0f; border: 1px solid #1f1f1f; border-radius: 6px; padding: 0.75rem 0.85rem; }
+  .acct .label { font-size: 0.7rem; text-transform: uppercase; color: #64748b; letter-spacing: 0.06em; }
+  .acct .val { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 1.15rem; font-weight: 600; color: #e2e8f0; margin-top: 0.25rem; }
+  .acct.attn { border-color: #f59e0b; background: rgba(245, 158, 11, 0.05); }
+  .acct.attn .val { color: #f59e0b; }
+  .acct .delta { font-size: 0.72rem; color: #4ade80; margin-top: 0.15rem; font-family: monospace; }
+
+  /* BODY: 2-column transactions + side panel */
+  .body { display: grid; grid-template-columns: 1fr 320px; gap: 1rem; min-height: 0; }
+
+  .tx-panel { background: #0f0f0f; border: 1px solid #1f1f1f; border-radius: 6px; display: flex; flex-direction: column; min-height: 0; }
+  .tx-panel-header { padding: 0.6rem 0.85rem; border-bottom: 1px solid #1f1f1f; display: flex; justify-content: space-between; align-items: center; }
+  .tx-panel-header h4 { margin: 0; font-size: 0.85rem; color: #e2e8f0; }
+  .tx-panel-header .filter { display: flex; gap: 0.4rem; }
+  .tx-panel-header .filter button { background: #1a1a1a; color: #94a3b8; border: 1px solid #2a2a2a; padding: 0.2rem 0.55rem; border-radius: 4px; font-size: 0.72rem; cursor: pointer; }
+  .tx-panel-header .filter button.active { background: #f59e0b; color: #0a0a0a; border-color: #f59e0b; font-weight: 600; }
+
+  .tx-list { overflow: auto; }
+  .tx-row { display: grid; grid-template-columns: 60px 1fr 80px 90px 100px; gap: 0.5rem; padding: 0.5rem 0.85rem; font-size: 0.82rem; border-bottom: 1px solid #1a1a1a; align-items: center; }
+  .tx-row .time { color: #64748b; font-family: monospace; font-size: 0.75rem; }
+  .tx-row .who { color: #cbd5e1; }
+  .tx-row .who .type { color: #94a3b8; font-size: 0.72rem; display: block; }
+  .tx-row .method { font-size: 0.72rem; padding: 0.1rem 0.4rem; border-radius: 4px; background: #1f1f1f; color: #cbd5e1; text-align: center; }
+  .tx-row .amt { font-family: monospace; text-align: right; color: #e2e8f0; }
+  .tx-row .by { font-size: 0.72rem; color: #64748b; text-align: right; }
+  .tx-row.pending { background: rgba(239, 68, 68, 0.05); border-left: 3px solid #ef4444; }
+  .tx-row.pending .who::after { content: " · pending"; color: #ef4444; font-size: 0.72rem; }
+
+  /* SIDE PANEL: actions */
+  .side { display: flex; flex-direction: column; gap: 0.75rem; }
+  .quick-actions { background: #0f0f0f; border: 1px solid #1f1f1f; border-radius: 6px; padding: 0.85rem; }
+  .quick-actions h4 { margin: 0 0 0.6rem 0; font-size: 0.78rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; }
+  .quick-actions .action-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+  .quick-actions .qa { background: #1a1a1a; border: 1px solid #2a2a2a; color: #e2e8f0; padding: 0.7rem 0.5rem; border-radius: 6px; cursor: pointer; font-size: 0.82rem; text-align: center; font-weight: 500; }
+  .quick-actions .qa:hover { background: rgba(245, 158, 11, 0.1); border-color: #f59e0b; color: #f59e0b; }
+
+  .pickup-queue { background: #0f0f0f; border: 1px solid #1f1f1f; border-radius: 6px; padding: 0.85rem; }
+  .pickup-queue h4 { margin: 0 0 0.6rem 0; font-size: 0.78rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; }
+  .pickup-row { background: rgba(239, 68, 68, 0.06); border: 1px solid #7f1d1d; border-radius: 6px; padding: 0.6rem; display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; }
+  .pickup-row .who { font-size: 0.85rem; color: #fee2e2; font-weight: 500; }
+  .pickup-row .meta { font-size: 0.72rem; color: #fca5a5; }
+  .pickup-row .confirm { background: #ef4444; color: #fff; border: none; padding: 0.4rem 0.7rem; border-radius: 4px; font-weight: 600; font-size: 0.78rem; cursor: pointer; }
+  .pickup-row .timer { font-family: monospace; color: #fca5a5; font-size: 0.78rem; margin-top: 0.15rem; }
+
+  .empty { font-size: 0.78rem; color: #64748b; text-align: center; padding: 0.5rem; }
+</style>
+
+<div class="app-frame">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar" style="display:flex; flex-direction:column;">
+    <div class="brand">♠ CageRoom</div>
+
+    <div class="nav-item active"><span class="icon">🌙</span> Live Session</div>
+    <div class="nav-item"><span class="icon">🃏</span> Players</div>
+    <div class="nav-item"><span class="icon">🪑</span> Tables</div>
+    <div class="nav-item"><span class="icon">🏦</span> Markers</div>
+
+    <div class="nav-divider"></div>
+
+    <div class="nav-item"><span class="icon">📊</span> My activity</div>
+
+    <div class="session-pill">● Session open · 7:03pm</div>
+
+    <div style="flex:1"></div>
+
+    <div class="user-chip">
+      <div class="avatar">M</div>
+      <div>Maria Garcia<br><span style="color:#475569;font-size:0.7rem">cashier · PIN unlocked</span></div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+
+    <!-- header strip -->
+    <div class="header-strip">
+      <div class="session-title">Tonight's Session <span class="meta">opened 7:03pm by Maria · 4h 22m elapsed</span></div>
+      <div class="header-actions">
+        <button class="btn ghost">Hand off cashier</button>
+        <button class="btn danger">Close session…</button>
+      </div>
+    </div>
+
+    <!-- accounts strip -->
+    <div class="accounts">
+      <div class="acct"><div class="label">Cash drawer</div><div class="val">$4,720</div><div class="delta">+$200 last 5m</div></div>
+      <div class="acct"><div class="label">Zelle</div><div class="val">$1,800</div><div class="delta">—</div></div>
+      <div class="acct"><div class="label">Venmo</div><div class="val">$0</div><div class="delta">—</div></div>
+      <div class="acct"><div class="label">CashApp</div><div class="val">$350</div><div class="delta">—</div></div>
+      <div class="acct"><div class="label">Chip float</div><div class="val">$6,475</div><div class="delta">+$200 last 5m</div></div>
+      <div class="acct attn"><div class="label">Rake pool</div><div class="val">$385</div><div class="delta">+$15 last 5m</div></div>
+    </div>
+
+    <!-- body -->
+    <div class="body">
+
+      <!-- transaction stream -->
+      <div class="tx-panel">
+        <div class="tx-panel-header">
+          <h4>Transaction stream</h4>
+          <div class="filter">
+            <button class="active">All</button>
+            <button>Buy-ins</button>
+            <button>Cash-outs</button>
+            <button>Rake</button>
+            <button>Markers</button>
+            <button>Search…</button>
+          </div>
+        </div>
+        <div class="tx-list">
+          <div class="tx-row pending">
+            <div class="time">11:24</div>
+            <div class="who">Player W · Table 3<span class="type">buy_in pickup → Maria @ cage</span></div>
+            <div class="method">cash</div>
+            <div class="amt">+$400</div>
+            <div class="by">by Sara (runner)</div>
+          </div>
+          <div class="tx-row">
+            <div class="time">11:21</div>
+            <div class="who">Player C · Table 2<span class="type">cash_out</span></div>
+            <div class="method">cash</div>
+            <div class="amt">−$650</div>
+            <div class="by">by Maria</div>
+          </div>
+          <div class="tx-row">
+            <div class="time">11:18</div>
+            <div class="who">Table 1<span class="type">rake</span></div>
+            <div class="method">chips</div>
+            <div class="amt">+$15</div>
+            <div class="by">by Maria</div>
+          </div>
+          <div class="tx-row">
+            <div class="time">11:15</div>
+            <div class="who">Player A · Table 1<span class="type">buy_in</span></div>
+            <div class="method">zelle</div>
+            <div class="amt">+$300</div>
+            <div class="by">by Maria</div>
+          </div>
+          <div class="tx-row">
+            <div class="time">11:12</div>
+            <div class="who">Player K · Freeroll #14<span class="type">freeroll_prize_payout</span></div>
+            <div class="method">chips</div>
+            <div class="amt">+$225</div>
+            <div class="by">by Maria</div>
+          </div>
+          <div class="tx-row">
+            <div class="time">11:08</div>
+            <div class="who">Player B · Table 3<span class="type">marker_repay</span></div>
+            <div class="method">cash</div>
+            <div class="amt">+$200</div>
+            <div class="by">by Maria</div>
+          </div>
+          <div class="tx-row">
+            <div class="time">11:04</div>
+            <div class="who">Player W · Table 3<span class="type">buy_in</span></div>
+            <div class="method">cash</div>
+            <div class="amt">+$275</div>
+            <div class="by">by Maria</div>
+          </div>
+          <div class="tx-row">
+            <div class="time">11:01</div>
+            <div class="who">Player E · Table 4<span class="type">cash_out</span></div>
+            <div class="method">cashapp</div>
+            <div class="amt">−$120</div>
+            <div class="by">by Maria</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- side panel -->
+      <div class="side">
+        <div class="quick-actions">
+          <h4>Quick actions</h4>
+          <div class="action-grid">
+            <div class="qa">+ Buy-in</div>
+            <div class="qa">− Cash-out</div>
+            <div class="qa">+ Rake</div>
+            <div class="qa">$ Marker</div>
+            <div class="qa">⇄ Tournament</div>
+            <div class="qa">⋯ More</div>
+          </div>
+        </div>
+
+        <div class="pickup-queue">
+          <h4>Pending pickups</h4>
+          <div class="pickup-row">
+            <div>
+              <div class="who">Sara · $400 cash</div>
+              <div class="meta">Player W · Table 3</div>
+              <div class="timer">⏱ 1m 24s</div>
+            </div>
+            <button class="confirm">Confirm</button>
+          </div>
+        </div>
+
+        <div class="quick-actions">
+          <h4>Tonight at a glance</h4>
+          <div style="font-size:0.82rem; color:#cbd5e1; line-height:1.7">
+            <div>👥 28 players</div>
+            <div>💵 47 buy-ins · $11,250 total</div>
+            <div>📤 19 cash-outs · $4,775 total</div>
+            <div>💰 Rake collected: $385</div>
+            <div>🎁 Promo spent: $225</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+</div>

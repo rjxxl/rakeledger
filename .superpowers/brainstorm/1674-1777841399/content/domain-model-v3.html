@@ -1,0 +1,81 @@
+<h2>Section 2 — Domain Model (v3, final)</h2>
+<p class="subtitle">Added promo_pool account and freeroll_prize_payout transaction type to handle freeroll prizes correctly.</p>
+
+<style>
+  .col2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; margin-top: 1.5rem; }
+  .panel { background: rgba(255,255,255,0.03); border-left: 3px solid #f59e0b; padding: 1rem 1.25rem; border-radius: 6px; }
+  .panel h3 { margin-top: 0; color: #f59e0b; font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.05em; }
+  .panel ul { margin: 0; padding-left: 1.2rem; line-height: 1.7; }
+  .panel li code { background: rgba(255,255,255,0.06); padding: 0.05rem 0.4rem; border-radius: 3px; font-size: 0.82rem; }
+  .new { color: #22d3ee; font-weight: 600; }
+  .matrix { width: 100%; border-collapse: collapse; margin-top: 1rem; font-size: 0.85rem; }
+  .matrix th, .matrix td { border: 1px solid #444; padding: 0.5rem 0.75rem; text-align: left; }
+  .matrix th { background: rgba(245, 158, 11, 0.1); color: #f59e0b; }
+  .matrix code { background: rgba(255,255,255,0.05); padding: 0.05rem 0.3rem; border-radius: 3px; font-size: 0.78rem; }
+  .matrix tr.new-row td { background: rgba(34, 211, 238, 0.06); }
+</style>
+
+<div class="col2">
+
+  <div class="panel">
+    <h3>Account types (10)</h3>
+    <ul>
+      <li><code>cash_drawer</code></li>
+      <li><code>zelle</code></li>
+      <li><code>venmo</code></li>
+      <li><code>cashapp</code></li>
+      <li><code>apple_pay</code></li>
+      <li><code>chip_float</code></li>
+      <li><code>marker_outstanding</code></li>
+      <li><code>rake_pool</code></li>
+      <li><code>tip_pool</code></li>
+      <li><code>tournament_pool</code> — paid tournaments (self-funding)</li>
+      <li class="new"><code>promo_pool</code> — house-funded freeroll prizes</li>
+    </ul>
+  </div>
+
+  <div class="panel">
+    <h3>Transaction methods (6)</h3>
+    <ul>
+      <li><code>cash</code></li>
+      <li><code>zelle</code></li>
+      <li><code>venmo</code></li>
+      <li><code>cashapp</code></li>
+      <li><code>apple_pay</code></li>
+      <li><code>other</code> (requires note)</li>
+    </ul>
+  </div>
+
+</div>
+
+<h3 style="margin-top:2rem">Transaction types and which accounts they touch</h3>
+
+<table class="matrix">
+  <thead>
+    <tr>
+      <th>Transaction type</th>
+      <th>Account ↑ (credit / increase)</th>
+      <th>Account ↓ (debit / decrease)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td><code>buy_in</code></td><td>chip_float</td><td>cash_drawer (or zelle/venmo/cashapp/apple_pay/other)</td></tr>
+    <tr><td><code>cash_out</code></td><td>cash_drawer (or zelle/venmo/...)</td><td>chip_float</td></tr>
+    <tr><td><code>rake</code></td><td>rake_pool</td><td>chip_float</td></tr>
+    <tr><td><code>tournament_fee</code></td><td>tournament_pool</td><td>cash_drawer (or other method)</td></tr>
+    <tr><td><code>tournament_payout</code></td><td>cash_drawer (or other method)</td><td>tournament_pool</td></tr>
+    <tr><td><code>tip_payout</code></td><td>cash_drawer (or other method)</td><td>tip_pool</td></tr>
+    <tr><td><code>marker_issue</code></td><td>marker_outstanding</td><td>chip_float</td></tr>
+    <tr><td><code>marker_repay</code></td><td>cash_drawer (or other method)</td><td>marker_outstanding</td></tr>
+    <tr><td><code>jackpot_payout</code></td><td>chip_float (or cash_drawer)</td><td>rake_pool</td></tr>
+    <tr><td><code>staff_advance</code></td><td>cash_drawer</td><td>(off-book — note only)</td></tr>
+    <tr><td><code>fnb_cost</code></td><td>cash_drawer</td><td>(off-book expense)</td></tr>
+    <tr><td><code>rake_distribution</code></td><td>cash_drawer (or method)</td><td>rake_pool</td></tr>
+    <tr class="new-row"><td><code>freeroll_prize_payout</code> ✨</td><td>promo_pool</td><td>chip_float (chips out, no cash in)</td></tr>
+    <tr><td><code>drawer_count_adjust</code></td><td>cash_drawer (or other)</td><td>(variance bucket)</td></tr>
+  </tbody>
+</table>
+
+<p style="margin-top:1.5rem; padding: 1rem; background: rgba(34, 211, 238, 0.06); border-left: 3px solid #22d3ee; border-radius: 6px;">
+  <strong>Note on staff_advance and fnb_cost:</strong> These are real cash leaving the drawer that isn't matched by an asset on the books — they're expenses. We model the "other side" as an implicit expense bucket (or call it <code>operating_expense</code> if we want it tracked). For v1 it's enough that the cashier records "${X} taken out for [reason]" so the drawer count doesn't appear short.
+</p>

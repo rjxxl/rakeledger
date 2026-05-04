@@ -1,0 +1,153 @@
+<h2>Section 2 — Domain Model</h2>
+<p class="subtitle">Boxes are entities (database tables). Arrows show how they relate.</p>
+
+<style>
+  .erd { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; margin-top: 1rem; }
+  .entity { border: 2px solid var(--border, #444); border-radius: 8px; padding: 0.75rem 1rem; background: rgba(255,255,255,0.02); }
+  .entity h4 { margin: 0 0 0.5rem 0; padding-bottom: 0.4rem; border-bottom: 1px solid var(--border, #333); font-size: 1rem; display:flex; align-items:center; gap:.4rem; }
+  .entity .pk { color: #f59e0b; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
+  .entity ul { list-style: none; padding: 0; margin: 0; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.78rem; line-height: 1.5; }
+  .entity li { color: #cbd5e1; }
+  .entity li .type { color: #64748b; }
+  .entity .core { background: rgba(245, 158, 11, 0.08); border-color: #f59e0b; }
+  .group-label { grid-column: 1 / -1; color: #f59e0b; text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.75rem; font-weight: 700; margin: 1rem 0 -0.5rem 0; }
+  .relationships { margin-top: 2rem; padding: 1rem; background: rgba(255,255,255,0.03); border-radius: 8px; border-left: 3px solid #f59e0b; }
+  .relationships h3 { margin-top: 0; }
+  .relationships code { background: rgba(255,255,255,0.06); padding: 0.1rem 0.4rem; border-radius: 3px; font-size: 0.85rem; }
+</style>
+
+<div class="erd">
+
+  <div class="group-label">Core ledger entities</div>
+
+  <div class="entity core">
+    <h4>Session 🌙</h4>
+    <ul>
+      <li><span class="pk">PK</span> id</li>
+      <li>opened_at <span class="type">timestamp</span></li>
+      <li>closed_at <span class="type">timestamp?</span></li>
+      <li>opened_by <span class="type">→ User</span></li>
+      <li>closed_by <span class="type">→ User?</span></li>
+      <li>opening_cash <span class="type">decimal</span></li>
+      <li>closing_cash <span class="type">decimal?</span></li>
+      <li>notes <span class="type">text?</span></li>
+    </ul>
+  </div>
+
+  <div class="entity core">
+    <h4>Transaction 💸</h4>
+    <ul>
+      <li><span class="pk">PK</span> id</li>
+      <li>session_id <span class="type">→ Session</span></li>
+      <li>type <span class="type">enum</span></li>
+      <li>created_at <span class="type">timestamp</span></li>
+      <li>created_by <span class="type">→ User</span></li>
+      <li>player_id <span class="type">→ Player?</span></li>
+      <li>staff_id <span class="type">→ User?</span></li>
+      <li>table_id <span class="type">→ Table?</span></li>
+      <li>amount <span class="type">decimal</span></li>
+      <li>method <span class="type">enum (cash/zelle/...)</span></li>
+      <li>note <span class="type">text?</span></li>
+      <li>reverses_id <span class="type">→ Transaction?</span></li>
+    </ul>
+  </div>
+
+  <div class="entity core">
+    <h4>LedgerEntry 📒</h4>
+    <ul>
+      <li><span class="pk">PK</span> id</li>
+      <li>transaction_id <span class="type">→ Transaction</span></li>
+      <li>account <span class="type">enum</span></li>
+      <li>delta <span class="type">decimal (+/-)</span></li>
+      <li>created_at <span class="type">timestamp</span></li>
+    </ul>
+  </div>
+
+  <div class="group-label">People</div>
+
+  <div class="entity">
+    <h4>User 👤</h4>
+    <ul>
+      <li><span class="pk">PK</span> id</li>
+      <li>name</li>
+      <li>email</li>
+      <li>role <span class="type">enum (owner/cashier/host/runner/dealer)</span></li>
+      <li>pin_hash <span class="type">string</span></li>
+      <li>active <span class="type">bool</span></li>
+    </ul>
+  </div>
+
+  <div class="entity">
+    <h4>Player 🃏</h4>
+    <ul>
+      <li><span class="pk">PK</span> id</li>
+      <li>display_name</li>
+      <li>phone <span class="type">string?</span></li>
+      <li>notes <span class="type">text?</span></li>
+      <li>credit_limit <span class="type">decimal</span></li>
+      <li>created_at <span class="type">timestamp</span></li>
+    </ul>
+  </div>
+
+  <div class="entity">
+    <h4>Table 🪑</h4>
+    <ul>
+      <li><span class="pk">PK</span> id</li>
+      <li>name (e.g. "Table 1")</li>
+      <li>game_type <span class="type">enum</span></li>
+      <li>stakes <span class="type">string</span></li>
+      <li>active <span class="type">bool</span></li>
+    </ul>
+  </div>
+
+  <div class="group-label">Specialized</div>
+
+  <div class="entity">
+    <h4>Marker 🏦</h4>
+    <ul>
+      <li><span class="pk">PK</span> id</li>
+      <li>player_id <span class="type">→ Player</span></li>
+      <li>issued_in_session <span class="type">→ Session</span></li>
+      <li>issued_tx <span class="type">→ Transaction</span></li>
+      <li>amount <span class="type">decimal</span></li>
+      <li>repaid_amount <span class="type">decimal</span></li>
+      <li>status <span class="type">enum (open/repaid/written_off)</span></li>
+    </ul>
+  </div>
+
+  <div class="entity">
+    <h4>SessionAccountClose 🔒</h4>
+    <ul>
+      <li><span class="pk">PK</span> id</li>
+      <li>session_id <span class="type">→ Session</span></li>
+      <li>account <span class="type">enum</span></li>
+      <li>expected <span class="type">decimal (computed)</span></li>
+      <li>counted <span class="type">decimal (entered)</span></li>
+      <li>variance <span class="type">decimal</span></li>
+      <li>note <span class="type">text?</span></li>
+    </ul>
+  </div>
+
+  <div class="entity">
+    <h4>RakeDistribution 💰</h4>
+    <ul>
+      <li><span class="pk">PK</span> id</li>
+      <li>session_id <span class="type">→ Session</span></li>
+      <li>recipient_user_id <span class="type">→ User</span></li>
+      <li>amount <span class="type">decimal</span></li>
+      <li>tx_id <span class="type">→ Transaction</span></li>
+    </ul>
+  </div>
+
+</div>
+
+<div class="relationships">
+  <h3>How it all fits together</h3>
+  <ul style="line-height:1.7">
+    <li>A <code>Session</code> brackets the night. Everything else lives inside one.</li>
+    <li>A <code>Transaction</code> is what the user sees and records ("Player X buys in $500 via Zelle"). Has a <code>type</code> (buy_in, cash_out, rake, tournament_fee, tournament_payout, tip_payout, marker_issue, marker_repay, jackpot_payout, staff_advance, fnb_cost, drawer_count_adjust).</li>
+    <li>Each <code>Transaction</code> generates exactly two <code>LedgerEntry</code> rows that sum to zero (double-entry). <code>account</code> is one of: cash_drawer, zelle, venmo, cashapp, chip_float, marker_outstanding, rake_pool, tip_pool, tournament_pool.</li>
+    <li>Mistakes are corrected by adding a new <code>Transaction</code> with <code>reverses_id</code> set — never UPDATE or DELETE the original.</li>
+    <li><code>SessionAccountClose</code> is the end-of-night reconciliation row per account: what the system says the balance should be vs. what was physically counted.</li>
+  </ul>
+</div>
