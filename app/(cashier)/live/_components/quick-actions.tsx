@@ -1,4 +1,4 @@
-import { BuyInModal } from "./tx-buyin-modal";
+import { BuyInModalServer } from "./tx-buyin-modal-wrapper";
 import { CashOutModal } from "./tx-cashout-modal";
 import { RakeModal } from "./tx-rake-modal";
 import { TipDropModal } from "./tx-tipdrop-modal";
@@ -17,7 +17,7 @@ export async function QuickActions({ sessionId, gameId }: QuickActionsProps) {
     <div className="bg-[var(--color-panel)] border border-[var(--color-border)] rounded-lg p-3">
       <h4 className="text-xs uppercase tracking-wider text-slate-400 mb-3">Quick actions</h4>
       <div className="grid grid-cols-2 gap-2">
-        <BuyInModal sessionId={sessionId} gameId={gameId} trigger={<button className={baseBtn}>+ Buy-in</button>} />
+        <BuyInModalServer sessionId={sessionId} gameId={gameId} trigger={<button className={baseBtn}>+ Buy-in</button>} />
         <CashOutModal sessionId={sessionId} gameId={gameId} trigger={<button className={baseBtn}>− Cash-out</button>} />
         <RakeModal sessionId={sessionId} gameId={gameId} trigger={<button className={baseBtn}>+ Rake</button>} />
         <TipDropModal sessionId={sessionId} gameId={gameId} trigger={<button className={baseBtn}>+ Tip drop</button>} />
