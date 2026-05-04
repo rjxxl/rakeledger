@@ -4,9 +4,9 @@
 
 **Goal:** Build a no-auth, cashier-centric web app that replaces the friend's Google Sheet workflow for the most common nightly operations. The cashier can open a session, manage players/staff/tables, record buy-ins/cash-outs/rake/tip-drops/markers, and close the session with per-account reconciliation. Full operational depth (freerolls, walks/returns, divergence finder, etc.) ships in Plan 1b; auth + runner mobile in Plan 2; owner dashboards + admin panel in Plan 3.
 
-**Architecture:** Next.js 15 App Router + TypeScript + Tailwind. Postgres + Prisma. The append-only multi-account ledger lives in `lib/ledger/`. Double-entry validation uses a type-aware sign convention; append-only is enforced by Postgres triggers. Routes split via App Router groups: `(cashier)/` for the cage UI; `api/` only for server actions called from client-side forms (most mutations go through Server Actions directly). All money values use `decimal.js` / `Prisma.Decimal` — never JS floats. The full schema (including entities used in later plans) is created up-front so Plan 1b doesn't require migrations.
+**Architecture:** Next.js 16 App Router + TypeScript + Tailwind v4. Postgres + Prisma. The append-only multi-account ledger lives in `lib/ledger/`. Double-entry validation uses a type-aware sign convention; append-only is enforced by Postgres triggers. Routes split via App Router groups: `(cashier)/` for the cage UI; `api/` only for server actions called from client-side forms (most mutations go through Server Actions directly). All money values use `decimal.js` / `Prisma.Decimal` — never JS floats. The full schema (including entities used in later plans) is created up-front so Plan 1b doesn't require migrations.
 
-**Tech Stack:** Next.js 15, TypeScript, Tailwind CSS v4, Prisma 6, Postgres 16 (Docker locally), Zod, decimal.js, Vitest, Playwright
+**Tech Stack:** Next.js 16, TypeScript, Tailwind CSS v4, Prisma 6, Postgres 16 (Docker locally), Zod, decimal.js, Vitest, Playwright
 
 ---
 
