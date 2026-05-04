@@ -1,0 +1,53 @@
+import { getOpenSession, openSession } from "../_actions/session";
+import { Money } from "@/components/money";
+
+export default async function LiveSessionPage() {
+  const session = await getOpenSession();
+
+  if (!session) {
+    return (
+      <div className="max-w-md mx-auto mt-12 bg-[var(--color-panel)] border border-[var(--color-border)] rounded-lg p-6">
+        <h2 className="text-lg font-semibold mb-2">No session open</h2>
+        <p className="text-slate-400 text-sm mb-4">
+          Open a session to begin recording transactions. Set an optional starting cash float (the small bills already
+          in the drawer for change-making).
+        </p>
+        <form action={openSession} className="flex flex-col gap-3">
+          <label className="flex flex-col text-sm text-slate-300 gap-1">
+            <span>Opening cash float (optional)</span>
+            <input
+              type="number"
+              name="openingCash"
+              step="0.01"
+              min="0"
+              defaultValue="0"
+              className="bg-black/40 border border-[var(--color-border)] rounded px-3 py-2 text-white"
+            />
+          </label>
+          <button
+            type="submit"
+            className="bg-amber-500 text-black font-semibold rounded px-4 py-2 hover:bg-amber-400"
+          >
+            Open Session
+          </button>
+        </form>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <header className="flex justify-between items-center mb-4">
+        <h2 className="text-lg font-semibold">Tonight's Session</h2>
+        <div className="text-sm text-slate-500">
+          opened {new Date(session.openedAt).toLocaleTimeString()} by {session.openedBy.name}
+          {" · "}
+          opening cash <Money amount={session.openingCash.toString()} />
+        </div>
+      </header>
+      <div className="text-slate-400 text-sm">
+        Account strip and transaction stream coming in the next tasks.
+      </div>
+    </div>
+  );
+}
