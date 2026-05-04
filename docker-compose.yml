@@ -1,0 +1,15 @@
+services:
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: poker
+      POSTGRES_PASSWORD: poker_dev
+      POSTGRES_DB: poker_room_accounting
+    ports:
+      - "5432:5432"
+    volumes:
+      - poker_pg_data:/var/lib/postgresql/data
+
+volumes:
+  poker_pg_data:
