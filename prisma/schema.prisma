@@ -120,28 +120,32 @@ model User {
   customRole   Role?      @relation(fields: [customRoleId], references: [id])
   createdAt    DateTime   @default(now())
 
-  capabilityGrants UserCapabilityGrant[]
-  openedSessions   Session[]             @relation("SessionOpenedBy")
-  closedSessions   Session[]             @relation("SessionClosedBy")
-  txCreated        Transaction[]         @relation("TxCreatedBy")
-  txStaff          Transaction[]         @relation("TxStaff")
-  outgoingHandoffs CashierHandoff[]      @relation("HandoffOutgoing")
-  incomingHandoffs CashierHandoff[]      @relation("HandoffIncoming")
-  rakeReceived     RakeDistribution[]
-  accountClosesBy  SessionAccountClose[]
+  capabilityGrants      UserCapabilityGrant[] @relation("CapabilityGrantUser")
+  capabilityGrantsGiven UserCapabilityGrant[] @relation("CapabilityGrantBy")
+  openedSessions        Session[]             @relation("SessionOpenedBy")
+  closedSessions        Session[]             @relation("SessionClosedBy")
+  txCreated             Transaction[]         @relation("TxCreatedBy")
+  txStaff               Transaction[]         @relation("TxStaff")
+  pickupsConfirmed      Transaction[]         @relation("PickupConfirmedBy")
+  outgoingHandoffs      CashierHandoff[]      @relation("HandoffOutgoing")
+  incomingHandoffs      CashierHandoff[]      @relation("HandoffIncoming")
+  rakeReceived          RakeDistribution[]
+  accountClosesBy       SessionAccountClose[]
 }
 
 model UserCapabilityGrant {
   id            String   @id @default(cuid())
-  user          User     @relation(fields: [userId], references: [id])
+  user          User     @relation("CapabilityGrantUser", fields: [userId], references: [id])
   userId        String
   capabilityKey String
   mode          String // "grant" | "revoke"
+  grantedBy     User     @relation("CapabilityGrantBy", fields: [grantedById], references: [id])
   grantedById   String
   grantedAt     DateTime @default(now())
   reason        String?
 
   @@index([userId])
+  @@index([grantedById])
 }
 
 model Player {
@@ -185,6 +189,8 @@ model Session {
   rakeDistributions RakeDistribution[]
   cashierHandoffs   CashierHandoff[]
   markersIssued     Marker[]
+
+  @@index([status])
 }
 
 model Game {
@@ -233,12 +239,17 @@ model Transaction {
   pickupEscalatedAt   DateTime?
   roundingAdjustment  Decimal?        @db.Decimal(12, 4) // for tip_house_tax
 
-  ledgerEntries LedgerEntry[]
-  marker        Marker?       @relation("MarkerIssueTx")
+  pickupConfirmedBy User? @relation("PickupConfirmedBy", fields: [pickupConfirmedById], references: [id])
+
+  ledgerEntries    LedgerEntry[]
+  marker           Marker?           @relation("MarkerIssueTx")
+  rakeDistribution RakeDistribution? @relation("RakeDistributionTx")
 
   @@index([sessionId, createdAt])
+  @@index([gameId, createdAt])
   @@index([playerId])
   @@index([staffId])
+  @@index([pickupConfirmedById])
 }
 
 model LedgerEntry {
@@ -251,6 +262,7 @@ model LedgerEntry {
   delta         Decimal     @db.Decimal(12, 2)
   createdAt     DateTime    @default(now())
 
+  @@index([transactionId])
   @@index([account, transactionId])
   @@index([gameId, account])
 }
@@ -290,15 +302,16 @@ model SessionAccountClose {
 }
 
 model RakeDistribution {
-  id              String  @id @default(cuid())
-  session         Session @relation(fields: [sessionId], references: [id])
+  id              String      @id @default(cuid())
+  session         Session     @relation(fields: [sessionId], references: [id])
   sessionId       String
-  game            Game    @relation(fields: [gameId], references: [id])
+  game            Game        @relation(fields: [gameId], references: [id])
   gameId          String
-  recipient       User    @relation(fields: [recipientUserId], references: [id])
+  recipient       User        @relation(fields: [recipientUserId], references: [id])
   recipientUserId String
-  amount          Decimal @db.Decimal(12, 2)
-  txId            String  @unique
+  amount          Decimal     @db.Decimal(12, 2)
+  tx              Transaction @relation("RakeDistributionTx", fields: [txId], references: [id])
+  txId            String      @unique
 }
 
 model CashierHandoff {
