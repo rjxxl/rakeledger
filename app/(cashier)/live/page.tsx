@@ -1,5 +1,6 @@
 import { getOpenSession, openSession } from "../_actions/session";
 import { Money } from "@/components/money";
+import { AccountStrip } from "./_components/account-strip";
 
 export default async function LiveSessionPage() {
   const session = await getOpenSession();
@@ -45,9 +46,8 @@ export default async function LiveSessionPage() {
           opening cash <Money amount={session.openingCash.toString()} />
         </div>
       </header>
-      <div className="text-slate-400 text-sm">
-        Account strip and transaction stream coming in the next tasks.
-      </div>
+      <AccountStrip sessionId={session.id} />
+      <div className="text-slate-400 text-sm">Quick actions and transaction stream coming next.</div>
     </div>
   );
 }
