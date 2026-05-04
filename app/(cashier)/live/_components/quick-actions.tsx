@@ -3,6 +3,10 @@ import { CashOutModal } from "./tx-cashout-modal";
 import { RakeModal } from "./tx-rake-modal";
 import { TipDropModal } from "./tx-tipdrop-modal";
 import { MarkerModal } from "./tx-marker-modal";
+import { TournamentModal } from "./tx-tournament-modal";
+import { JackpotModal } from "./tx-jackpot-modal";
+import { FreerollModal } from "./tx-freeroll-modal";
+import { MiscModal } from "./tx-misc-modal";
 
 interface QuickActionsProps {
   sessionId: string;
@@ -22,7 +26,10 @@ export async function QuickActions({ sessionId, gameId }: QuickActionsProps) {
         <RakeModal sessionId={sessionId} gameId={gameId} trigger={<button className={baseBtn}>+ Rake</button>} />
         <TipDropModal sessionId={sessionId} gameId={gameId} trigger={<button className={baseBtn}>+ Tip drop</button>} />
         <MarkerModal sessionId={sessionId} gameId={gameId} trigger={<button className={baseBtn}>$ Marker</button>} />
-        <button className={baseBtn + " opacity-50 cursor-not-allowed"} disabled>⋯ More (Phase D)</button>
+        <TournamentModal sessionId={sessionId} gameId={gameId} trigger={<button className={baseBtn}>⇄ Tournament</button>} />
+        <JackpotModal sessionId={sessionId} gameId={gameId} trigger={<button className={baseBtn}>🏆 Jackpot</button>} />
+        <FreerollModal sessionId={sessionId} gameId={gameId} trigger={<button className={baseBtn}>🎁 Freeroll</button>} />
+        <MiscModal sessionId={sessionId} gameId={gameId} trigger={<button className={baseBtn} style={{ gridColumn: "span 2" }}>⋯ Other</button>} />
       </div>
     </div>
   );
