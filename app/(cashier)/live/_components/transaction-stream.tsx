@@ -1,8 +1,33 @@
+import Decimal from "decimal.js";
 import { Money } from "@/components/money";
 import { prisma } from "@/lib/db";
+import type { AccountType } from "@prisma/client";
 
 interface TransactionStreamProps {
   sessionId: string;
+}
+
+// For each transaction, the cashier most cares about how the cage-side accounts moved.
+// We pick the "headline" ledger entry in this priority order, then use its delta as the displayed amount.
+const HEADLINE_ACCOUNTS: AccountType[] = [
+  "CASH_DRAWER",
+  "ZELLE",
+  "VENMO",
+  "CASHAPP",
+  "APPLE_PAY",
+  "RAKE_POOL",
+  "TIP_POOL",
+  "PROMO_POOL",
+  "MARKER_OUTSTANDING",
+  "CHIP_FLOAT",
+];
+
+function pickHeadlineDelta(ledgerEntries: Array<{ account: AccountType; delta: { toString(): string } }>) {
+  for (const account of HEADLINE_ACCOUNTS) {
+    const entry = ledgerEntries.find((e) => e.account === account);
+    if (entry) return new Decimal(entry.delta.toString());
+  }
+  return ledgerEntries.length > 0 ? new Decimal(ledgerEntries[0].delta.toString()) : new Decimal(0);
 }
 
 export async function TransactionStream({ sessionId }: TransactionStreamProps) {
@@ -30,7 +55,7 @@ export async function TransactionStream({ sessionId }: TransactionStreamProps) {
       <div className="divide-y divide-[var(--color-border)]">
         {txs.map((tx) => {
           const time = new Date(tx.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-          const sign = tx.type === "CASH_OUT" || tx.type === "CLOSING_FLOAT" ? -1 : 1;
+          const headlineDelta = pickHeadlineDelta(tx.ledgerEntries);
           return (
             <div key={tx.id} className="grid grid-cols-[60px_1fr_70px_90px_100px] gap-2 px-4 py-2 text-sm">
               <div className="text-xs font-mono text-slate-500">{time}</div>
@@ -43,7 +68,7 @@ export async function TransactionStream({ sessionId }: TransactionStreamProps) {
                 {tx.method.toLowerCase()}
               </div>
               <div className="font-mono text-right self-center">
-                <Money amount={(sign * Number(tx.amount.toString())).toString()} signed />
+                <Money amount={headlineDelta.toString()} signed />
               </div>
               <div className="text-xs text-slate-500 self-center text-right">{tx.createdBy.name}</div>
             </div>
