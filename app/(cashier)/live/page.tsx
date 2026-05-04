@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { getOpenSession, openSession } from "../_actions/session";
 import { Money } from "@/components/money";
 import { AccountStrip } from "./_components/account-strip";
@@ -46,10 +47,15 @@ export default async function LiveSessionPage() {
     <div>
       <header className="flex justify-between items-center mb-4">
         <h2 className="text-lg font-semibold">Tonight's Session</h2>
-        <div className="text-sm text-slate-500">
-          opened {new Date(session.openedAt).toLocaleTimeString()} by {session.openedBy.name}
-          {" · "}
-          opening cash <Money amount={session.openingCash.toString()} />
+        <div className="flex items-center gap-3">
+          <div className="text-sm text-slate-500">
+            opened {new Date(session.openedAt).toLocaleTimeString()} by {session.openedBy.name}
+            {" · "}
+            opening cash <Money amount={session.openingCash.toString()} />
+          </div>
+          <Link href="/close" className="text-red-400 border border-red-900 rounded px-3 py-1.5 text-sm hover:bg-red-950/40">
+            Close session…
+          </Link>
         </div>
       </header>
       <AccountStrip sessionId={session.id} />
