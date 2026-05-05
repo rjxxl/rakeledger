@@ -273,6 +273,13 @@ export async function recordJackpotPayout(formData: FormData): Promise<void> {
   const amount = new Decimal(input.amount);
   const method: PaymentMethod = input.paidIn === "CASH" ? "CASH" : "CHIPS";
 
+  // Jackpots are funded from the game's rake pool. Two payout shapes:
+  //   CHIPS path: chips leave the cage to the player (chip_float ↑) AND rake pool drained (rake_pool ↓).
+  //               Both deltas same magnitude; signs balance under double-entry rules
+  //               (chip_float liability +X cancels rake_pool revenue -X).
+  //   CASH path: cash leaves the drawer to the player (cash_drawer ↓) AND rake pool drained (rake_pool ↓).
+  //              Both deltas negative — same shape as TIP_PAYOUT (settling a revenue obligation with cash).
+  //              cash_drawer asset (-X) cancels rake_pool revenue (-X) under sign-adjusted sum.
   const entries =
     input.paidIn === "CHIPS"
       ? [

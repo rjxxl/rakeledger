@@ -67,6 +67,13 @@ export async function closeSession(formData: FormData): Promise<void> {
   // Optimistic-lock: only proceed if status is still OPEN at the moment we start.
   // We freeze the session FIRST (atomic update where status = OPEN), then write account-close rows.
   // If two concurrent requests both pass the optimistic check, only one's update will succeed.
+  //
+  // KNOWN LIMITATION (deferred): the `getAccountBalance(...)` calls below use the global Prisma
+  // singleton, not the transaction-local `tx` client. Reads happen on a different connection than
+  // writes. In practice this is safe because the session is locked-and-closed in the very first
+  // statement of the transaction — the closed-session trigger blocks any concurrent ledger inserts
+  // after that point. But architecturally the read snapshot could miss a race in a more demanding
+  // workload. Plan 1c may pass `tx` through to a transaction-aware variant of `getAccountBalance`.
   await prisma.$transaction(async (tx) => {
     const lockResult = await tx.session.updateMany({
       where: { id: sessionId, status: "OPEN" },

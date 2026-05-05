@@ -1,3 +1,16 @@
+// Variance heuristics for end-of-night divergence finding.
+//
+// All heuristic functions take a flat list of transactions (`TxLite[]`) and produce zero or more
+// `Suggestion`s. The expected input is **session-scoped**: every transaction passed in should
+// belong to the same Session. Heuristics do NOT account for game scope — for a multi-game session,
+// per-player groups (e.g., in `findOutliers` and `findDecimalTypos`) pool transactions across all
+// of that player's games in the session. That's intentional: a player's activity at any table
+// during the night is the relevant window for spotting unusual amounts.
+//
+// `findEqualOpposite` requires variance values which only exist after the cashier enters counted
+// amounts at close-out. Plan 1b's close page passes `[]` for variances at render time and only
+// runs the txs-based heuristics; an interactive variance-aware re-run is deferred to Plan 3.
+
 import Decimal from "decimal.js";
 import type { AccountType } from "@prisma/client";
 

@@ -4,6 +4,11 @@ interface Props {
   sessionId: string;
 }
 
+// NOTE: This timestamp comparison runs at server-render time. The label freezes until the next
+// page revalidate (which fires from any transaction Server Action via `revalidatePath("/live")`).
+// In practice the cashier records transactions throughout the night, so this stays fresh enough.
+// If a session goes 20+ minutes with zero activity, the displayed badge can be stale until the
+// next interaction. Plan 2's SSE refresh would make this live.
 function ageColor(timestamp: Date | null): { label: string; cls: string } {
   if (!timestamp) return { label: "no drop yet", cls: "text-red-400" };
   const minutesAgo = (Date.now() - timestamp.getTime()) / 60_000;
