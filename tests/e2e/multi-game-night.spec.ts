@@ -2,18 +2,19 @@ import { test, expect } from "@playwright/test";
 import { execSync } from "node:child_process";
 
 test.beforeEach(async () => {
-  // Reset the test DB and reseed the dev DB before each run
-  // Note: this E2E test uses the DEV database, so we need to reset that one (not the test DB).
-  const consentEnv = {
-    ...process.env,
-    PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION:
-      "yes, reset the local dev database before each E2E test",
-  };
+  const E2E_URL = "postgresql://rakeledger:rakeledger_dev@localhost:5432/rakeledger_e2e?schema=public";
   execSync("npx prisma migrate reset --force --skip-generate --skip-seed", {
     stdio: "inherit",
-    env: consentEnv,
+    env: {
+      ...process.env,
+      DATABASE_URL: E2E_URL,
+      PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION: "1",
+    },
   });
-  execSync("npx prisma db seed", { stdio: "inherit" });
+  execSync("npx prisma db seed", {
+    stdio: "inherit",
+    env: { ...process.env, DATABASE_URL: E2E_URL },
+  });
 });
 
 test("multi-game night: open session, add second game, buy-in, close cleanly", async ({ page }) => {

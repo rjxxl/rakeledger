@@ -9,7 +9,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "db:test:reset": "dotenv -e .env.test -- npx prisma migrate reset --force --skip-seed --skip-generate"
+    "db:test:reset": "dotenv -e .env.test -- npx prisma migrate reset --force --skip-seed --skip-generate",
+    "db:e2e:reset": "dotenv -e .env.e2e -- npx prisma migrate reset --force --skip-seed --skip-generate"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
