@@ -6,14 +6,7 @@ import Decimal from "decimal.js";
 import { createTransaction } from "@/lib/ledger/transaction";
 import { getAccountBalance } from "@/lib/ledger/balance";
 import { ACCOUNTS } from "@/lib/ledger/accounts";
-
-const CASHIER_EMAIL = "cashier@dev.local";
-
-async function getCashierUserId(): Promise<string> {
-  const cashier = await prisma.user.findUnique({ where: { email: CASHIER_EMAIL } });
-  if (!cashier) throw new Error("Cashier user not seeded — run `npx prisma db seed`");
-  return cashier.id;
-}
+import { getCashierUserId } from "./_cashier";
 
 export async function openSession(formData: FormData): Promise<void> {
   const openingCashRaw = formData.get("openingCash")?.toString() ?? "0";

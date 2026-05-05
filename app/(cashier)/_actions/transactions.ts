@@ -12,14 +12,7 @@ import {
   freerollPrizeSchema,
   staffAdvanceSchema, fnbCostSchema, drawerAdjustSchema, chipFloatAdjustSchema,
 } from "@/lib/validation/transactions";
-
-const CASHIER_EMAIL = "cashier@dev.local";
-
-async function cashierUserId(): Promise<string> {
-  const c = await prisma.user.findUnique({ where: { email: CASHIER_EMAIL } });
-  if (!c) throw new Error("Cashier user not seeded");
-  return c.id;
-}
+import { getCashierUserId } from "./_cashier";
 
 async function ensureSessionOpen(sessionId: string): Promise<void> {
   const s = await prisma.session.findUnique({ where: { id: sessionId } });
@@ -43,7 +36,7 @@ export async function recordBuyIn(formData: FormData): Promise<void> {
   const input = parseFormData(buyInSchema, formData);
   await ensureSessionOpen(input.sessionId);
 
-  const cashierId = await cashierUserId();
+  const cashierId = await getCashierUserId();
   const targetAccount = METHOD_TO_ACCOUNT[input.method as PaymentMethod];
   const amount = new Decimal(input.amount);
 
@@ -69,7 +62,7 @@ export async function recordCashOut(formData: FormData): Promise<void> {
   const input = parseFormData(cashOutSchema, formData);
   await ensureSessionOpen(input.sessionId);
 
-  const cashierId = await cashierUserId();
+  const cashierId = await getCashierUserId();
   const targetAccount = METHOD_TO_ACCOUNT[input.method as PaymentMethod];
 
   // Denomination grid: $100 × n100 + $25 × n25 + $5 × n5 + $1 × n1
@@ -97,7 +90,7 @@ export async function recordRake(formData: FormData): Promise<void> {
   const input = parseFormData(rakeSchema, formData);
   await ensureSessionOpen(input.sessionId);
 
-  const cashierId = await cashierUserId();
+  const cashierId = await getCashierUserId();
   const amount = new Decimal(input.amount);
 
   await createTransaction({
@@ -122,7 +115,7 @@ export async function recordTipDrop(formData: FormData): Promise<void> {
   const input = parseFormData(tipDropSchema, formData);
   await ensureSessionOpen(input.sessionId);
 
-  const cashierId = await cashierUserId();
+  const cashierId = await getCashierUserId();
   const amount = new Decimal(input.amount);
 
   await createTransaction({
@@ -147,7 +140,7 @@ export async function issueMarker(formData: FormData): Promise<void> {
   const input = parseFormData(markerIssueSchema, formData);
   await ensureSessionOpen(input.sessionId);
 
-  const cashierId = await cashierUserId();
+  const cashierId = await getCashierUserId();
   const amount = new Decimal(input.amount);
   const collateral = input.collateral ?? null;
 
@@ -197,7 +190,7 @@ export async function repayMarker(formData: FormData): Promise<void> {
     throw new Error(`Repayment ${amount.toString()} exceeds remaining marker balance ${remaining.toString()}`);
   }
 
-  const cashierId = await cashierUserId();
+  const cashierId = await getCashierUserId();
   const targetAccount = METHOD_TO_ACCOUNT[input.method as PaymentMethod];
 
   await createTransaction({
@@ -228,7 +221,7 @@ export async function repayMarker(formData: FormData): Promise<void> {
 export async function recordTournamentFee(formData: FormData): Promise<void> {
   const input = parseFormData(tournamentFeeSchema, formData);
   await ensureSessionOpen(input.sessionId);
-  const cashierId = await cashierUserId();
+  const cashierId = await getCashierUserId();
   const amount = new Decimal(input.amount);
   const targetAccount = METHOD_TO_ACCOUNT[input.method as PaymentMethod];
 
@@ -252,7 +245,7 @@ export async function recordTournamentFee(formData: FormData): Promise<void> {
 export async function recordTournamentPayout(formData: FormData): Promise<void> {
   const input = parseFormData(tournamentPayoutSchema, formData);
   await ensureSessionOpen(input.sessionId);
-  const cashierId = await cashierUserId();
+  const cashierId = await getCashierUserId();
   const amount = new Decimal(input.amount);
   const targetAccount = METHOD_TO_ACCOUNT[input.method as PaymentMethod];
 
@@ -276,7 +269,7 @@ export async function recordTournamentPayout(formData: FormData): Promise<void> 
 export async function recordJackpotPayout(formData: FormData): Promise<void> {
   const input = parseFormData(jackpotPayoutSchema, formData);
   await ensureSessionOpen(input.sessionId);
-  const cashierId = await cashierUserId();
+  const cashierId = await getCashierUserId();
   const amount = new Decimal(input.amount);
   const method: PaymentMethod = input.paidIn === "CASH" ? "CASH" : "CHIPS";
 
@@ -309,7 +302,7 @@ export async function recordJackpotPayout(formData: FormData): Promise<void> {
 export async function recordFreerollPrize(formData: FormData): Promise<void> {
   const input = parseFormData(freerollPrizeSchema, formData);
   await ensureSessionOpen(input.sessionId);
-  const cashierId = await cashierUserId();
+  const cashierId = await getCashierUserId();
   const amount = new Decimal(input.amount);
 
   await createTransaction({
@@ -330,7 +323,15 @@ export async function recordFreerollPrize(formData: FormData): Promise<void> {
   revalidatePath("/live");
 }
 
-export async function getUnredeemedPromoForPlayer(sessionId: string, playerId: string): Promise<string> {
+/**
+ * Returns the total dollar value of freeroll prizes awarded to this player in the current session.
+ *
+ * NOTE: This is a GROSS total — it does NOT subtract any chips the player has since spent (in buy-ins
+ * or cashed out). For the buy-in modal's banner, this is informative ("the player walked into your cage
+ * with promo chips on their stack — make sure you're only counting the new cash"), but it is not a true
+ * unredeemed balance. A proper net per-player off-premises chip tracker is deferred to Plan 1c.
+ */
+export async function getTotalFreerollPrizesForPlayer(sessionId: string, playerId: string): Promise<string> {
   const txs = await prisma.transaction.findMany({
     where: {
       sessionId,
@@ -349,7 +350,7 @@ export async function getUnredeemedPromoForPlayer(sessionId: string, playerId: s
 export async function recordStaffAdvance(formData: FormData): Promise<void> {
   const input = parseFormData(staffAdvanceSchema, formData);
   await ensureSessionOpen(input.sessionId);
-  const cashierId = await cashierUserId();
+  const cashierId = await getCashierUserId();
   const amount = new Decimal(input.amount);
 
   await createTransaction({
@@ -372,7 +373,7 @@ export async function recordStaffAdvance(formData: FormData): Promise<void> {
 export async function recordFnbCost(formData: FormData): Promise<void> {
   const input = parseFormData(fnbCostSchema, formData);
   await ensureSessionOpen(input.sessionId);
-  const cashierId = await cashierUserId();
+  const cashierId = await getCashierUserId();
   const amount = new Decimal(input.amount);
 
   await createTransaction({
@@ -394,7 +395,7 @@ export async function recordFnbCost(formData: FormData): Promise<void> {
 export async function recordDrawerAdjust(formData: FormData): Promise<void> {
   const input = parseFormData(drawerAdjustSchema, formData);
   await ensureSessionOpen(input.sessionId);
-  const cashierId = await cashierUserId();
+  const cashierId = await getCashierUserId();
   const amount = new Decimal(input.amount);
 
   await createTransaction({
@@ -416,7 +417,7 @@ export async function recordDrawerAdjust(formData: FormData): Promise<void> {
 export async function recordChipFloatAdjust(formData: FormData): Promise<void> {
   const input = parseFormData(chipFloatAdjustSchema, formData);
   await ensureSessionOpen(input.sessionId);
-  const cashierId = await cashierUserId();
+  const cashierId = await getCashierUserId();
   const amount = new Decimal(input.amount);
 
   // CHIP_FLOAT (liability, naturalSign=-1) delta=amount

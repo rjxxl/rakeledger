@@ -5,19 +5,13 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { createTransaction } from "@/lib/ledger/transaction";
 import { chipWalkSchema, chipReturnSchema } from "@/lib/validation/walks";
-
-const CASHIER_EMAIL = "cashier@dev.local";
-async function cashierUserId(): Promise<string> {
-  const c = await prisma.user.findUnique({ where: { email: CASHIER_EMAIL } });
-  if (!c) throw new Error("Cashier user not seeded");
-  return c.id;
-}
+import { getCashierUserId } from "./_cashier";
 
 export async function recordChipWalk(formData: FormData): Promise<void> {
   const obj: Record<string, string> = {};
   for (const [k, v] of formData.entries()) obj[k] = v.toString();
   const input = chipWalkSchema.parse(obj);
-  const cashierId = await cashierUserId();
+  const cashierId = await getCashierUserId();
   const amount = new Decimal(input.amount);
 
   // Walk: chips leave the cage's accounting universe.
@@ -46,7 +40,7 @@ export async function recordChipReturn(formData: FormData): Promise<void> {
   const obj: Record<string, string> = {};
   for (const [k, v] of formData.entries()) obj[k] = v.toString();
   const input = chipReturnSchema.parse(obj);
-  const cashierId = await cashierUserId();
+  const cashierId = await getCashierUserId();
   const amount = new Decimal(input.amount);
 
   const note = input.matchesWalkId

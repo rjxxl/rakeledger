@@ -93,6 +93,11 @@ export default async function ClosePage() {
     };
   });
 
+  if (session.games.length === 0) {
+    // Defensive: openSession always creates a default game, but if a future migration ever leaves a
+    // session without one, redirect rather than crash.
+    redirect("/live");
+  }
   const defaultGameId = session.games[0].id;
 
   const chipFloatBalance = await getAccountBalance({ account: "CHIP_FLOAT", sessionId: session.id });

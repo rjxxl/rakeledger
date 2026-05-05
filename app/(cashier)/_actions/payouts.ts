@@ -5,13 +5,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { createTransaction } from "@/lib/ledger/transaction";
 import { z } from "zod";
-
-const CASHIER_EMAIL = "cashier@dev.local";
-async function cashierUserId(): Promise<string> {
-  const c = await prisma.user.findUnique({ where: { email: CASHIER_EMAIL } });
-  if (!c) throw new Error("Cashier user not seeded");
-  return c.id;
-}
+import { getCashierUserId } from "./_cashier";
 
 const tipPayoutSchema = z.object({
   sessionId: z.string().min(1),
@@ -40,7 +34,7 @@ export async function executeTipPayout(formData: FormData): Promise<void> {
   const sessionId = input.sessionId;
   const gameId = input.gameId;
   const staffId = input.staffId;
-  const cashierId = await cashierUserId();
+  const cashierId = await getCashierUserId();
   const totalTipPool = new Decimal(input.totalTipPool);
   const roundedTax = new Decimal(input.roundedTax);
   const netToStaff = new Decimal(input.netToStaff);
@@ -103,7 +97,7 @@ export async function distributeRakeForGame(formData: FormData): Promise<void> {
     method: z.enum(["CASH", "ZELLE", "VENMO", "CASHAPP", "APPLE_PAY"]),
   })).parse(JSON.parse(input.recipients));
 
-  const cashierId = await cashierUserId();
+  const cashierId = await getCashierUserId();
 
   for (const r of recipients) {
     const amount = new Decimal(r.amount);
@@ -154,7 +148,7 @@ export async function distributeHouseTax(formData: FormData): Promise<void> {
     method: z.enum(["CASH", "ZELLE", "VENMO", "CASHAPP", "APPLE_PAY"]),
   })).parse(JSON.parse(input.recipients));
 
-  const cashierId = await cashierUserId();
+  const cashierId = await getCashierUserId();
 
   for (const r of recipients) {
     const amount = new Decimal(r.amount);

@@ -52,7 +52,7 @@ export function BuyInModal({ sessionId, gameId, players, tables, getUnredeemedPr
 
         {showBanner && (
           <div className="bg-cyan-500/10 border border-cyan-700 text-cyan-300 text-xs rounded px-3 py-2">
-            ⚡ This player has <strong>${unredeemed}</strong> in unredeemed freeroll chips.
+            ⚡ This player won <strong>${unredeemed}</strong> in freeroll prizes this session.
             Only enter the <em>cash</em> they&apos;re handing you now — those promo chips are already on their stack.
           </div>
         )}

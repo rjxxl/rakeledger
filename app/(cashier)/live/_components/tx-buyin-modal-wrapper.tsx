@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { getUnredeemedPromoForPlayer } from "../../_actions/transactions";
+import { getTotalFreerollPrizesForPlayer } from "../../_actions/transactions";
 import { BuyInModal } from "./tx-buyin-modal";
 
 interface Props {
@@ -16,7 +16,7 @@ export async function BuyInModalServer({ sessionId, gameId, trigger }: Props) {
 
   async function getUnredeemedPromo(playerId: string) {
     "use server";
-    return getUnredeemedPromoForPlayer(sessionId, playerId);
+    return getTotalFreerollPrizesForPlayer(sessionId, playerId);
   }
 
   return (
