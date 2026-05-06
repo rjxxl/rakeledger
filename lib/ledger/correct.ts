@@ -1,4 +1,5 @@
 import Decimal from "decimal.js";
+import { Prisma } from "@prisma/client";
 import type { TransactionType, PaymentMethod, AccountType } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { createTransaction } from "./transaction";
@@ -87,46 +88,59 @@ export async function correctTransaction(args: CorrectTransactionArgs) {
   // Atomicity: both writes share the same `tx` client, so if either createTransaction
   // throws (validation, balance trigger, FK error), Prisma rolls back BOTH writes.
   // The original `args.originalId` row remains untouched in that case.
-  return await prisma.$transaction(async (tx) => {
-    const reversal = await createTransaction(
-      {
-        sessionId: original.sessionId,
-        gameId: original.gameId,
-        type: original.type,
-        createdById: args.reversedById,
-        amount: originalAmount.neg(),
-        method: original.method as PaymentMethod,
-        playerId: original.playerId,
-        staffId: original.staffId,
-        tableId: original.tableId,
-        reversesId: original.id,
-        note: `REVERSAL of ${original.id}: ${args.reason}`,
-        entries: original.ledgerEntries.map((e) => ({
-          account: e.account as AccountType,
-          delta: new Decimal(e.delta.toString()).neg(),
-          gameId: e.gameId,
-        })),
-      },
-      tx
-    );
+  //
+  // Race-safety: the pre-flight `existingReversal` check above is a fast path for
+  // the common case, but two concurrent corrections could both pass it and both
+  // reach the insert. The `@unique` index on Transaction.reversesId means whichever
+  // INSERT loses the race triggers a Prisma P2002 (unique constraint violation),
+  // which we translate back into a CorrectionError so the API surface is consistent.
+  try {
+    return await prisma.$transaction(async (tx) => {
+      const reversal = await createTransaction(
+        {
+          sessionId: original.sessionId,
+          gameId: original.gameId,
+          type: original.type,
+          createdById: args.reversedById,
+          amount: originalAmount.neg(),
+          method: original.method as PaymentMethod,
+          playerId: original.playerId,
+          staffId: original.staffId,
+          tableId: original.tableId,
+          reversesId: original.id,
+          note: `REVERSAL of ${original.id}: ${args.reason}`,
+          entries: original.ledgerEntries.map((e) => ({
+            account: e.account as AccountType,
+            delta: new Decimal(e.delta.toString()).neg(),
+            gameId: e.gameId,
+          })),
+        },
+        tx
+      );
 
-    const corrected = await createTransaction(
-      {
-        sessionId: original.sessionId,
-        gameId: original.gameId,
-        type: original.type,
-        createdById: args.reversedById,
-        amount: newAmount,
-        method: newMethod,
-        playerId: args.overrides.playerId !== undefined ? args.overrides.playerId : original.playerId,
-        staffId: args.overrides.staffId !== undefined ? args.overrides.staffId : original.staffId,
-        tableId: args.overrides.tableId !== undefined ? args.overrides.tableId : original.tableId,
-        note: args.overrides.note !== undefined ? args.overrides.note : `Corrected from ${original.id}: ${args.reason}`,
-        entries: newEntries,
-      },
-      tx
-    );
+      const corrected = await createTransaction(
+        {
+          sessionId: original.sessionId,
+          gameId: original.gameId,
+          type: original.type,
+          createdById: args.reversedById,
+          amount: newAmount,
+          method: newMethod,
+          playerId: args.overrides.playerId !== undefined ? args.overrides.playerId : original.playerId,
+          staffId: args.overrides.staffId !== undefined ? args.overrides.staffId : original.staffId,
+          tableId: args.overrides.tableId !== undefined ? args.overrides.tableId : original.tableId,
+          note: args.overrides.note !== undefined ? args.overrides.note : `Corrected from ${original.id}: ${args.reason}`,
+          entries: newEntries,
+        },
+        tx
+      );
 
-    return { reversal, corrected };
-  });
+      return { reversal, corrected };
+    });
+  } catch (e) {
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
+      throw new CorrectionError("This transaction has already been corrected or reversed (concurrent request)");
+    }
+    throw e;
+  }
 }

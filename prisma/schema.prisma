@@ -231,7 +231,7 @@ model Transaction {
   method              PaymentMethod
   note                String?
   reverses            Transaction?    @relation("Reversal", fields: [reversesId], references: [id])
-  reversesId          String?
+  reversesId          String?         @unique
   reversedBy          Transaction[]   @relation("Reversal")
   pickupStatus        PickupStatus?
   pickupConfirmedAt   DateTime?
