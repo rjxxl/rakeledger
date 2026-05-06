@@ -12,6 +12,8 @@ interface OriginalTx {
   method: string;
   playerName: string | null;
   playerId: string | null;
+  staffName: string | null;
+  staffId: string | null;
   tableName: string | null;
   tableId: string | null;
   note: string | null;
@@ -21,6 +23,7 @@ interface Props {
   tx: OriginalTx;
   players: Array<{ id: string; displayName: string }>;
   tables: Array<{ id: string; name: string }>;
+  staff: Array<{ id: string; name: string }>;
   trigger: React.ReactNode;
 }
 
@@ -37,7 +40,7 @@ const METHOD_LOCKED_TYPES = new Set([
   "STAFF_ADVANCE", "FNB_COST", "DRAWER_COUNT_ADJUST",
 ]);
 
-function CorrectForm({ close, tx, players, tables }: { close: () => void; tx: OriginalTx; players: Props["players"]; tables: Props["tables"] }) {
+function CorrectForm({ close, tx, players, tables, staff }: { close: () => void; tx: OriginalTx; players: Props["players"]; tables: Props["tables"]; staff: Props["staff"] }) {
   const toast = useToast();
   const { onSubmit, pending, error } = useFormAction(submitCorrection, {
     onSuccess: () => {
@@ -48,6 +51,7 @@ function CorrectForm({ close, tx, players, tables }: { close: () => void; tx: Or
 
   const allowMethodEdit = !METHOD_LOCKED_TYPES.has(tx.type);
   const allowPlayerEdit = tx.playerId !== null;
+  const allowStaffEdit = tx.staffId !== null;
 
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-3">
@@ -87,6 +91,16 @@ function CorrectForm({ close, tx, players, tables }: { close: () => void; tx: Or
           </select>
         </label>
       )}
+      {allowStaffEdit && (
+        <label className="flex flex-col gap-1 text-sm">
+          <span className="text-slate-400">Staff (leave blank to keep {tx.staffName ?? "—"})</span>
+          <select name="staffId" defaultValue=""
+            className="bg-black/40 border border-[var(--color-border)] rounded px-3 py-2">
+            <option value="">— keep —</option>
+            {staff.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+          </select>
+        </label>
+      )}
       <label className="flex flex-col gap-1 text-sm">
         <span className="text-slate-400">Table (leave blank to keep)</span>
         <select name="tableId" defaultValue=""
@@ -104,10 +118,10 @@ function CorrectForm({ close, tx, players, tables }: { close: () => void; tx: Or
   );
 }
 
-export function TxCorrectModal({ tx, players, tables, trigger }: Props) {
+export function TxCorrectModal({ tx, players, tables, staff, trigger }: Props) {
   return (
     <Modal trigger={trigger} title="Correct transaction" description={`Reverses tx ${tx.id.slice(0, 8)} and records the corrected version. The original row is preserved for audit.`}>
-      {(close) => <CorrectForm close={close} tx={tx} players={players} tables={tables} />}
+      {(close) => <CorrectForm close={close} tx={tx} players={players} tables={tables} staff={staff} />}
     </Modal>
   );
 }

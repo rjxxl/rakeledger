@@ -11,6 +11,7 @@ interface TransactionStreamProps {
   activeGameId: string | "all";
   players: Array<{ id: string; displayName: string }>;
   tables: Array<{ id: string; name: string }>;
+  staff: Array<{ id: string; name: string }>;
 }
 
 const HEADLINE_ACCOUNTS: AccountType[] = [
@@ -33,7 +34,7 @@ function pickHeadlineDelta(ledgerEntries: Array<{ account: AccountType; delta: {
   return ledgerEntries.length > 0 ? new Decimal(ledgerEntries[0].delta.toString()) : new Decimal(0);
 }
 
-export async function TransactionStream({ sessionId, activeGameId, players, tables }: TransactionStreamProps) {
+export async function TransactionStream({ sessionId, activeGameId, players, tables, staff }: TransactionStreamProps) {
   const txs = await prisma.transaction.findMany({
     where: {
       sessionId,
@@ -97,11 +98,13 @@ export async function TransactionStream({ sessionId, activeGameId, players, tabl
                     tx={{
                       id: tx.id, type: tx.type, amount: tx.amount.toString(), method: tx.method,
                       playerName: tx.player?.displayName ?? null, playerId: tx.player?.id ?? null,
+                      staffName: tx.staff?.name ?? null, staffId: tx.staff?.id ?? null,
                       tableName: tx.table?.name ?? null, tableId: tx.table?.id ?? null,
                       note: tx.note,
                     }}
                     players={players}
                     tables={tables}
+                    staff={staff}
                     trigger={
                       <button className="text-xs text-slate-500 hover:text-amber-400 hover:underline cursor-pointer">
                         correct

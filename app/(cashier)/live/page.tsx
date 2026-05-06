@@ -58,6 +58,11 @@ export default async function LiveSessionPage({ searchParams }: PageProps) {
 
   const players = await prisma.player.findMany({ orderBy: { displayName: "asc" }, select: { id: true, displayName: true } });
   const tables = await prisma.table.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } });
+  const staff = await prisma.user.findMany({
+    where: { status: "ACTIVE" },
+    orderBy: { name: "asc" },
+    select: { id: true, name: true },
+  });
 
   return (
     <div className="flex flex-col h-[calc(100vh-2rem)] gap-3">
@@ -80,7 +85,7 @@ export default async function LiveSessionPage({ searchParams }: PageProps) {
 
       <div className="grid grid-cols-[1fr_320px] gap-3 flex-1 min-h-0">
         <div className="overflow-auto">
-          <TransactionStream sessionId={session.id} activeGameId={activeGameId} players={players} tables={tables} />
+          <TransactionStream sessionId={session.id} activeGameId={activeGameId} players={players} tables={tables} staff={staff} />
         </div>
         <div className="flex flex-col gap-3 overflow-auto">
           <QuickActions sessionId={session.id} gameId={formGameId} />
