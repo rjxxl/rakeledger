@@ -25,14 +25,8 @@ export const cashOutSchema = z.object({
   playerId: z.string().min(1),
   method: methodEnum,
   tableId: optionalId,
-  n100: z.coerce.number().int().nonnegative().default(0),
-  n25: z.coerce.number().int().nonnegative().default(0),
-  n5: z.coerce.number().int().nonnegative().default(0),
-  n1: z.coerce.number().int().nonnegative().default(0),
-}).refine(
-  (v) => v.n100 + v.n25 + v.n5 + v.n1 > 0,
-  "Cash-out total must be greater than zero"
-);
+  amount: decimalString,
+});
 
 export const rakeSchema = z.object({
   sessionId: z.string().min(1),

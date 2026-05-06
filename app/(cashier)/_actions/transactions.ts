@@ -64,9 +64,7 @@ export async function recordCashOut(formData: FormData): Promise<void> {
 
   const cashierId = await getCashierUserId();
   const targetAccount = METHOD_TO_ACCOUNT[input.method as PaymentMethod];
-
-  // Denomination grid: $100 × n100 + $25 × n25 + $5 × n5 + $1 × n1
-  const amount = new Decimal(input.n100 * 100 + input.n25 * 25 + input.n5 * 5 + input.n1);
+  const amount = new Decimal(input.amount);
 
   await createTransaction({
     sessionId: input.sessionId,
