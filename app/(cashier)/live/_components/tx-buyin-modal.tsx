@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useTransition } from "react";
 import { Modal } from "@/components/modal";
+import { useToast } from "@/components/toast/use-toast";
+import { useFormAction } from "@/components/use-form-action";
 import { recordBuyIn } from "../../_actions/transactions";
 
 interface BuyInModalProps {
@@ -13,79 +15,95 @@ interface BuyInModalProps {
   trigger: React.ReactNode;
 }
 
-export function BuyInModal({ sessionId, gameId, players, tables, getUnredeemedPromo, trigger }: BuyInModalProps) {
+interface FormProps {
+  close: () => void;
+  sessionId: string;
+  gameId: string;
+  players: Array<{ id: string; displayName: string }>;
+  tables: Array<{ id: string; name: string }>;
+  getUnredeemedPromo: (playerId: string) => Promise<string>;
+}
+
+function BuyInForm({ close, sessionId, gameId, players, tables, getUnredeemedPromo }: FormProps) {
+  const toast = useToast();
   const [selectedPlayerId, setSelectedPlayerId] = useState("");
   const [unredeemed, setUnredeemed] = useState<string>("0");
-  const [isPending, startTransition] = useTransition();
+  const [, startPromoTransition] = useTransition();
 
   useEffect(() => {
-    if (!selectedPlayerId) {
-      setUnredeemed("0");
-      return;
-    }
-    startTransition(async () => {
+    if (!selectedPlayerId) { setUnredeemed("0"); return; }
+    startPromoTransition(async () => {
       const amount = await getUnredeemedPromo(selectedPlayerId);
       setUnredeemed(amount);
     });
   }, [selectedPlayerId, getUnredeemedPromo]);
 
+  const { onSubmit, pending, error } = useFormAction(recordBuyIn, {
+    onSuccess: (fd) => {
+      const playerName = players.find((p) => p.id === fd.get("playerId"))?.displayName ?? "player";
+      toast.show(`Buy-in $${fd.get("amount")} recorded for ${playerName}`);
+      close();
+    },
+  });
+
   const showBanner = parseFloat(unredeemed) > 0;
 
   return (
+    <form onSubmit={onSubmit} className="flex flex-col gap-3">
+      <input type="hidden" name="sessionId" value={sessionId} />
+      <input type="hidden" name="gameId" value={gameId} />
+      <label className="flex flex-col gap-1 text-sm">
+        <span className="text-slate-400">Player</span>
+        <select name="playerId" required value={selectedPlayerId}
+          onChange={(e) => setSelectedPlayerId(e.target.value)}
+          className="bg-black/40 border border-[var(--color-border)] rounded px-3 py-2">
+          <option value="">— select —</option>
+          {players.map((p) => <option key={p.id} value={p.id}>{p.displayName}</option>)}
+        </select>
+      </label>
+      {showBanner && (
+        <div className="bg-cyan-500/10 border border-cyan-700 text-cyan-300 text-xs rounded px-3 py-2">
+          ⚡ This player won <strong>${unredeemed}</strong> in freeroll prizes this session.
+          Only enter the <em>cash</em> they&apos;re handing you now — those promo chips are already on their stack.
+        </div>
+      )}
+      <label className="flex flex-col gap-1 text-sm">
+        <span className="text-slate-400">Table (optional)</span>
+        <select name="tableId" className="bg-black/40 border border-[var(--color-border)] rounded px-3 py-2">
+          <option value="">— none —</option>
+          {tables.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+        </select>
+      </label>
+      <label className="flex flex-col gap-1 text-sm">
+        <span className="text-slate-400">Amount</span>
+        <input type="number" name="amount" step="0.01" min="0.01" required
+          className="bg-black/40 border border-[var(--color-border)] rounded px-3 py-2 font-mono" />
+      </label>
+      <label className="flex flex-col gap-1 text-sm">
+        <span className="text-slate-400">Method</span>
+        <select name="method" required defaultValue="CASH"
+          className="bg-black/40 border border-[var(--color-border)] rounded px-3 py-2">
+          <option value="CASH">Cash</option>
+          <option value="ZELLE">Zelle</option>
+          <option value="VENMO">Venmo</option>
+          <option value="CASHAPP">CashApp</option>
+          <option value="APPLE_PAY">Apple Pay</option>
+          <option value="OTHER">Other</option>
+        </select>
+      </label>
+      {error && <p className="text-red-400 text-xs">{error}</p>}
+      <button type="submit" disabled={pending}
+        className="bg-amber-500 text-black font-semibold rounded px-4 py-2 hover:bg-amber-400 disabled:opacity-50">
+        Record Buy-in
+      </button>
+    </form>
+  );
+}
+
+export function BuyInModal({ trigger, ...rest }: BuyInModalProps) {
+  return (
     <Modal trigger={trigger} title="+ Buy-in" description="Player exchanges money for chips.">
-      <form action={recordBuyIn} className="flex flex-col gap-3">
-        <input type="hidden" name="sessionId" value={sessionId} />
-        <input type="hidden" name="gameId" value={gameId} />
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="text-slate-400">Player</span>
-          <select
-            name="playerId"
-            required
-            value={selectedPlayerId}
-            onChange={(e) => setSelectedPlayerId(e.target.value)}
-            className="bg-black/40 border border-[var(--color-border)] rounded px-3 py-2"
-          >
-            <option value="">— select —</option>
-            {players.map((p) => <option key={p.id} value={p.id}>{p.displayName}</option>)}
-          </select>
-        </label>
-
-        {showBanner && (
-          <div className="bg-cyan-500/10 border border-cyan-700 text-cyan-300 text-xs rounded px-3 py-2">
-            ⚡ This player won <strong>${unredeemed}</strong> in freeroll prizes this session.
-            Only enter the <em>cash</em> they&apos;re handing you now — those promo chips are already on their stack.
-          </div>
-        )}
-
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="text-slate-400">Table (optional)</span>
-          <select name="tableId" className="bg-black/40 border border-[var(--color-border)] rounded px-3 py-2">
-            <option value="">— none —</option>
-            {tables.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-          </select>
-        </label>
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="text-slate-400">Amount</span>
-          <input type="number" name="amount" step="0.01" min="0.01" required
-            className="bg-black/40 border border-[var(--color-border)] rounded px-3 py-2 font-mono" />
-        </label>
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="text-slate-400">Method</span>
-          <select name="method" required defaultValue="CASH"
-            className="bg-black/40 border border-[var(--color-border)] rounded px-3 py-2">
-            <option value="CASH">Cash</option>
-            <option value="ZELLE">Zelle</option>
-            <option value="VENMO">Venmo</option>
-            <option value="CASHAPP">CashApp</option>
-            <option value="APPLE_PAY">Apple Pay</option>
-            <option value="OTHER">Other</option>
-          </select>
-        </label>
-        <button type="submit" disabled={isPending}
-          className="bg-amber-500 text-black font-semibold rounded px-4 py-2 hover:bg-amber-400 disabled:opacity-50">
-          Record Buy-in
-        </button>
-      </form>
+      {(close) => <BuyInForm close={close} {...rest} />}
     </Modal>
   );
 }
