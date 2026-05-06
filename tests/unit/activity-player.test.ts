@@ -83,7 +83,7 @@ describe("getPlayerSessionActivity", () => {
     expect(activity.rows).toHaveLength(0);
   });
 
-  it("includes reversals in rows but excludes them from totals", async () => {
+  it("includes both rows for a pure reversal but zeros out totals", async () => {
     const original = await createTransaction({
       sessionId, gameId, type: "BUY_IN", createdById: "test-cashier",
       amount: new Decimal(100), method: "CASH", playerId,
@@ -97,7 +97,37 @@ describe("getPlayerSessionActivity", () => {
 
     const activity = await getPlayerSessionActivity(sessionId, playerId);
     expect(activity.rows).toHaveLength(2);
-    expect(activity.totals.buyIn).toBe("100");
-    expect(activity.totals.netCash).toBe("100");
+    // Both the reversal AND the reversed original are excluded from totals — the economic
+    // effect was undone, so counting either side would misrepresent the player's exposure.
+    expect(activity.totals.buyIn).toBe("0");
+    expect(activity.totals.netCash).toBe("0");
+  });
+
+  it("excludes the reversed original after a correction (Yvonne case)", async () => {
+    // Original CASHAPP buy-in, then correctTransaction creates a reversal + a corrected
+    // APPLE_PAY re-entry. The panel should show $250 (the corrected amount), NOT $500
+    // (which would be the bug: counting both the original and the corrected).
+    const { correctTransaction } = await import("@/lib/ledger/correct");
+
+    const original = await createTransaction({
+      sessionId, gameId, type: "BUY_IN", createdById: "test-cashier",
+      amount: new Decimal(250), method: "CASHAPP", playerId,
+      entries: [
+        { account: "CASHAPP", delta: new Decimal(250) },
+        { account: "CHIP_FLOAT", delta: new Decimal(250) },
+      ],
+    });
+
+    await correctTransaction({
+      originalId: original.id,
+      reversedById: "test-cashier",
+      reason: "wrong method",
+      overrides: { method: "APPLE_PAY" },
+    });
+
+    const activity = await getPlayerSessionActivity(sessionId, playerId);
+    expect(activity.rows).toHaveLength(3); // original + reversal + corrected
+    expect(activity.totals.buyIn).toBe("250"); // only the corrected one counts
+    expect(activity.totals.netCash).toBe("250");
   });
 });

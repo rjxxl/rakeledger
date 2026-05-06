@@ -70,4 +70,22 @@ describe("getStaffSessionActivity", () => {
     expect(activity.totals.dropCount).toBe(0);
     expect(activity.totals.lastDropAt).toBeNull();
   });
+
+  it("excludes a reversed RAKE drop from totals after correction", async () => {
+    // A $25 rake drop, then a correctTransaction to $40. The panel should show
+    // rakeDrops = $40 (not $65 = $25 original + $40 corrected) and dropCount = 1.
+    const { correctTransaction } = await import("@/lib/ledger/correct");
+    const original = await rake(25);
+    await correctTransaction({
+      originalId: original.id,
+      reversedById: "test-cashier",
+      reason: "miscount",
+      overrides: { amount: new Decimal(40) },
+    });
+
+    const activity = await getStaffSessionActivity(sessionId, dealerId);
+    expect(activity.rows).toHaveLength(3); // original + reversal + corrected
+    expect(activity.totals.rakeDrops).toBe("40");
+    expect(activity.totals.dropCount).toBe(1);
+  });
 });

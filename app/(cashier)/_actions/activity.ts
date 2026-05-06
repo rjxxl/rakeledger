@@ -55,8 +55,17 @@ export async function getPlayerSessionActivity(sessionId: string, playerId: stri
     playerName: t.player?.displayName ?? null,
   }));
 
-  // Sum amounts per category. We only count tx that are not reversals (reversesId IS NULL).
-  // Reversals appear in the rows list for transparency but don't double-count in totals.
+  // Sum amounts per category. Three categories of rows are excluded from totals:
+  //   1. Reversals themselves (reversesId IS NOT NULL).
+  //   2. Originals that have been reversed — their economic effect was undone, so counting
+  //      them would double-count after a correction.
+  // All three rows (original, reversal, corrected) still appear in the rows list above for
+  // audit transparency; only the totals exclude the negated pair.
+  const reversedIds = new Set<string>();
+  for (const t of txs) {
+    if (t.reversesId) reversedIds.add(t.reversesId);
+  }
+
   let buyIn = new Decimal(0);
   let cashOut = new Decimal(0);
   let markersIssued = new Decimal(0);
@@ -67,6 +76,7 @@ export async function getPlayerSessionActivity(sessionId: string, playerId: stri
 
   for (const t of txs) {
     if (t.reversesId) continue;
+    if (reversedIds.has(t.id)) continue;
     const amt = new Decimal(t.amount.toString());
     switch (t.type) {
       case "BUY_IN":           buyIn = buyIn.add(amt);           netCash = netCash.add(amt);          break;
@@ -129,6 +139,13 @@ export async function getStaffSessionActivity(sessionId: string, staffId: string
     playerName: t.player?.displayName ?? null,
   }));
 
+  // Same exclusion rules as the player path: skip both reversals AND originals
+  // that were reversed (their effect was undone via correction).
+  const reversedIds = new Set<string>();
+  for (const t of txs) {
+    if (t.reversesId) reversedIds.add(t.reversesId);
+  }
+
   let rakeDrops = new Decimal(0);
   let tipDrops = new Decimal(0);
   let dropCount = 0;
@@ -136,6 +153,7 @@ export async function getStaffSessionActivity(sessionId: string, staffId: string
 
   for (const t of txs) {
     if (t.reversesId) continue;
+    if (reversedIds.has(t.id)) continue;
     if (t.type === "RAKE") {
       rakeDrops = rakeDrops.add(t.amount.toString());
       dropCount++;
