@@ -12,16 +12,18 @@ interface Walk {
   sessionOpenedAt: string;
 }
 
-interface Player {
+interface CandidatePlayer {
   id: string;
   displayName: string;
+  /** Net positive CHIP_FLOAT exposure for this player this session (stringified Decimal) */
+  unresolvedAmount: string;
 }
 
 interface Props {
   sessionId: string;
   gameId: string;
   chipFloatBalance: string;
-  candidatePlayers: Player[];
+  candidatePlayers: CandidatePlayer[];
   candidateWalks: Walk[];
 }
 
@@ -43,7 +45,10 @@ export function WalksReturnsStep({ sessionId, gameId, chipFloatBalance: chipFloa
         <ul className="flex flex-col gap-2">
           {candidatePlayers.map((p) => (
             <li key={p.id} className="flex items-center gap-2 text-sm">
-              <span className="flex-1">{p.displayName}</span>
+              <span className="flex-1">
+                {p.displayName}
+                <span className="text-xs text-slate-500 ml-2">${p.unresolvedAmount} in chips</span>
+              </span>
               <form action={async (fd) => {
                 await recordChipWalk(fd);
                 setDoneIds((s) => new Set(s).add(p.id));
@@ -51,7 +56,8 @@ export function WalksReturnsStep({ sessionId, gameId, chipFloatBalance: chipFloa
                 <input type="hidden" name="sessionId" value={sessionId} />
                 <input type="hidden" name="gameId" value={gameId} />
                 <input type="hidden" name="playerId" value={p.id} />
-                <input name="amount" type="number" step="0.01" min="0.01" placeholder="$0.00"
+                <input name="amount" type="number" step="0.01" min="0.01"
+                  defaultValue={p.unresolvedAmount}
                   className="bg-black/40 border border-[var(--color-border)] rounded px-2 py-1 w-24 font-mono text-right text-sm" />
                 <input name="note" placeholder="note (optional)"
                   className="bg-black/40 border border-[var(--color-border)] rounded px-2 py-1 w-40 text-sm" />

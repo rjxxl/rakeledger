@@ -66,19 +66,75 @@ export async function recordChipReturn(formData: FormData): Promise<void> {
   revalidatePath("/close");
 }
 
-export async function getPlayersWithUnresolvedChips(sessionId: string) {
-  const buyIns = await prisma.transaction.findMany({
-    where: { sessionId, type: "BUY_IN", playerId: { not: null } },
-    select: { playerId: true },
-    distinct: ["playerId"],
+export interface UnresolvedChipsCandidate {
+  id: string;
+  displayName: string;
+  /** Player's net CHIP_FLOAT exposure for this session, as a stringified Decimal.
+   * Positive means they have chips on the table that haven't returned to the cage. */
+  unresolvedAmount: string;
+}
+
+/**
+ * Returns players whose net CHIP_FLOAT delta in this session is positive — meaning
+ * they put chips into play (via BUY_IN, MARKER_ISSUE, JACKPOT/FREEROLL payouts to chips,
+ * etc.) that haven't come back via CASH_OUT or CHIP_WALK.
+ *
+ * Reversed transactions (and the originals they reversed) are excluded — their economic
+ * effect was undone, so counting either side would distort the player's exposure.
+ *
+ * Replaces the earlier "everyone who bought in" heuristic, which (a) missed players
+ * whose chips came from MARKER_ISSUE only and (b) noisily included players who already
+ * fully cashed out.
+ */
+export async function getPlayersWithUnresolvedChips(sessionId: string): Promise<UnresolvedChipsCandidate[]> {
+  const txs = await prisma.transaction.findMany({
+    where: {
+      sessionId,
+      playerId: { not: null },
+      ledgerEntries: { some: { account: "CHIP_FLOAT" } },
+    },
+    select: {
+      id: true,
+      playerId: true,
+      reversesId: true,
+      ledgerEntries: {
+        where: { account: "CHIP_FLOAT" },
+        select: { delta: true },
+      },
+    },
   });
 
+  // Skip reversals AND originals that have been reversed.
+  const reversedIds = new Set<string>();
+  for (const t of txs) {
+    if (t.reversesId) reversedIds.add(t.reversesId);
+  }
+
+  const perPlayer = new Map<string, Decimal>();
+  for (const t of txs) {
+    if (t.reversesId) continue;
+    if (reversedIds.has(t.id)) continue;
+    const delta = t.ledgerEntries.reduce(
+      (sum, e) => sum.add(new Decimal(e.delta.toString())),
+      new Decimal(0)
+    );
+    const current = perPlayer.get(t.playerId!) ?? new Decimal(0);
+    perPlayer.set(t.playerId!, current.add(delta));
+  }
+
+  const candidateEntries = [...perPlayer.entries()].filter(([, sum]) => sum.greaterThan(0));
+  if (candidateEntries.length === 0) return [];
+
   const players = await prisma.player.findMany({
-    where: { id: { in: buyIns.map((b) => b.playerId!).filter(Boolean) } },
+    where: { id: { in: candidateEntries.map(([id]) => id) } },
     orderBy: { displayName: "asc" },
   });
 
-  return players;
+  return players.map((p) => ({
+    id: p.id,
+    displayName: p.displayName,
+    unresolvedAmount: (perPlayer.get(p.id) ?? new Decimal(0)).toString(),
+  }));
 }
 
 export async function getCandidateWalksForReturn(sessionId: string) {
