@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getOpenSession, openSession } from "../_actions/session";
 import { Money } from "@/components/money";
+import { prisma } from "@/lib/db";
 import { AccountStrip } from "./_components/account-strip";
 import { TransactionStream } from "./_components/transaction-stream";
 import { QuickActions } from "./_components/quick-actions";
@@ -55,6 +56,9 @@ export default async function LiveSessionPage({ searchParams }: PageProps) {
       ? (session.games.find((g) => g.status === "OPEN") ?? session.games[0]).id
       : activeGameId;
 
+  const players = await prisma.player.findMany({ orderBy: { displayName: "asc" }, select: { id: true, displayName: true } });
+  const tables = await prisma.table.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } });
+
   return (
     <div className="flex flex-col h-[calc(100vh-2rem)] gap-3">
       <header className="flex justify-between items-center flex-shrink-0">
@@ -76,7 +80,7 @@ export default async function LiveSessionPage({ searchParams }: PageProps) {
 
       <div className="grid grid-cols-[1fr_320px] gap-3 flex-1 min-h-0">
         <div className="overflow-auto">
-          <TransactionStream sessionId={session.id} activeGameId={activeGameId} />
+          <TransactionStream sessionId={session.id} activeGameId={activeGameId} players={players} tables={tables} />
         </div>
         <div className="flex flex-col gap-3 overflow-auto">
           <QuickActions sessionId={session.id} gameId={formGameId} />

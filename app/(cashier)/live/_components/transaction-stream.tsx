@@ -1,19 +1,29 @@
 import Decimal from "decimal.js";
 import { Money } from "@/components/money";
 import { prisma } from "@/lib/db";
-import type { AccountType } from "@prisma/client";
+import type { AccountType, TransactionType } from "@prisma/client";
 import { PlayerNameTrigger } from "./player-name-trigger";
 import { StaffNameTrigger } from "./staff-name-trigger";
+import { TxCorrectModal } from "./tx-correct-modal";
 
 interface TransactionStreamProps {
   sessionId: string;
   activeGameId: string | "all";
+  players: Array<{ id: string; displayName: string }>;
+  tables: Array<{ id: string; name: string }>;
 }
 
 const HEADLINE_ACCOUNTS: AccountType[] = [
   "CASH_DRAWER", "ZELLE", "VENMO", "CASHAPP", "APPLE_PAY",
   "RAKE_POOL", "TIP_POOL", "PROMO_POOL", "MARKER_OUTSTANDING", "CHIP_FLOAT",
 ];
+
+const CORRECTABLE: ReadonlySet<TransactionType> = new Set([
+  "BUY_IN", "CASH_OUT", "RAKE", "TIP_DROP",
+  "TOURNAMENT_FEE", "TOURNAMENT_PAYOUT",
+  "JACKPOT_PAYOUT", "FREEROLL_PRIZE_PAYOUT",
+  "STAFF_ADVANCE", "FNB_COST", "DRAWER_COUNT_ADJUST", "CHIP_FLOAT_ADJUST",
+] as const) as ReadonlySet<TransactionType>;
 
 function pickHeadlineDelta(ledgerEntries: Array<{ account: AccountType; delta: { toString(): string } }>) {
   for (const account of HEADLINE_ACCOUNTS) {
@@ -23,7 +33,7 @@ function pickHeadlineDelta(ledgerEntries: Array<{ account: AccountType; delta: {
   return ledgerEntries.length > 0 ? new Decimal(ledgerEntries[0].delta.toString()) : new Decimal(0);
 }
 
-export async function TransactionStream({ sessionId, activeGameId }: TransactionStreamProps) {
+export async function TransactionStream({ sessionId, activeGameId, players, tables }: TransactionStreamProps) {
   const txs = await prisma.transaction.findMany({
     where: {
       sessionId,
@@ -33,6 +43,10 @@ export async function TransactionStream({ sessionId, activeGameId }: Transaction
     orderBy: { createdAt: "desc" },
     take: 100,
   });
+
+  const reversedIds = new Set(
+    txs.filter((t) => t.reversesId).map((t) => t.reversesId).filter((id): id is string => id !== null)
+  );
 
   if (txs.length === 0) {
     return (
@@ -52,8 +66,11 @@ export async function TransactionStream({ sessionId, activeGameId }: Transaction
         {txs.map((tx) => {
           const time = new Date(tx.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
           const headlineDelta = pickHeadlineDelta(tx.ledgerEntries);
+          const isReversal = tx.reversesId !== null;
+          const wasReversed = reversedIds.has(tx.id);
+          const canCorrect = CORRECTABLE.has(tx.type) && !isReversal && !wasReversed;
           return (
-            <div key={tx.id} className="grid grid-cols-[60px_1fr_70px_90px_100px] gap-2 px-4 py-2 text-sm">
+            <div key={tx.id} className="grid grid-cols-[60px_1fr_70px_90px_100px_70px] gap-2 px-4 py-2 text-sm">
               <div className="text-xs font-mono text-slate-500">{time}</div>
               <div>
                 {tx.player ? (
@@ -74,6 +91,29 @@ export async function TransactionStream({ sessionId, activeGameId }: Transaction
                 <Money amount={headlineDelta.toString()} signed />
               </div>
               <div className="text-xs text-slate-500 self-center text-right">{tx.createdBy.name}</div>
+              <div className="self-center text-right">
+                {canCorrect ? (
+                  <TxCorrectModal
+                    tx={{
+                      id: tx.id, type: tx.type, amount: tx.amount.toString(), method: tx.method,
+                      playerName: tx.player?.displayName ?? null, playerId: tx.player?.id ?? null,
+                      tableName: tx.table?.name ?? null, tableId: tx.table?.id ?? null,
+                      note: tx.note,
+                    }}
+                    players={players}
+                    tables={tables}
+                    trigger={
+                      <button className="text-xs text-slate-500 hover:text-amber-400 hover:underline cursor-pointer">
+                        correct
+                      </button>
+                    }
+                  />
+                ) : isReversal ? (
+                  <span className="text-xs text-slate-600 italic">reversal</span>
+                ) : wasReversed ? (
+                  <span className="text-xs text-slate-600 italic">corrected</span>
+                ) : null}
+              </div>
             </div>
           );
         })}
