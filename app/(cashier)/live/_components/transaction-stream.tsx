@@ -2,6 +2,7 @@ import Decimal from "decimal.js";
 import { Money } from "@/components/money";
 import { prisma } from "@/lib/db";
 import type { AccountType } from "@prisma/client";
+import { PlayerNameTrigger } from "./player-name-trigger";
 
 interface TransactionStreamProps {
   sessionId: string;
@@ -54,7 +55,11 @@ export async function TransactionStream({ sessionId, activeGameId }: Transaction
             <div key={tx.id} className="grid grid-cols-[60px_1fr_70px_90px_100px] gap-2 px-4 py-2 text-sm">
               <div className="text-xs font-mono text-slate-500">{time}</div>
               <div>
-                <span className="text-slate-200">{tx.player?.displayName ?? tx.staff?.name ?? "—"}</span>
+                {tx.player ? (
+                  <PlayerNameTrigger sessionId={sessionId} playerId={tx.player.id} playerName={tx.player.displayName} />
+                ) : (
+                  <span className="text-slate-200">{tx.staff?.name ?? "—"}</span>
+                )}
                 {tx.game && <span className="text-slate-500"> · {tx.game.name}</span>}
                 {tx.table && <span className="text-slate-500"> / {tx.table.name}</span>}
                 <div className="text-xs text-slate-500">{tx.type.toLowerCase()}</div>
