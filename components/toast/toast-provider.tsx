@@ -1,10 +1,8 @@
 "use client";
 
 import * as Toast from "@radix-ui/react-toast";
-import { useCallback, useState, type ReactNode } from "react";
+import { useCallback, useRef, useState, type ReactNode } from "react";
 import { ToastContext, type ToastKind, type ToastShape } from "./use-toast";
-
-let nextId = 1;
 
 const KIND_CLASSES: Record<ToastKind, string> = {
   success: "border-emerald-700 bg-emerald-950/80 text-emerald-200",
@@ -14,9 +12,10 @@ const KIND_CLASSES: Record<ToastKind, string> = {
 
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<ToastShape[]>([]);
+  const nextIdRef = useRef(1);
 
   const show = useCallback((message: string, kind: ToastKind = "success") => {
-    const id = nextId++;
+    const id = nextIdRef.current++;
     setToasts((prev) => [...prev, { id, message, kind }]);
   }, []);
 

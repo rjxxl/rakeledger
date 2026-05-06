@@ -1,5 +1,9 @@
 "use client";
 
+// No server shell needed: this modal needs `useState` for the unredeemed-promo banner,
+// so it's already a client component. The other 8 Quick Action modals split into
+// `tx-xxx-modal.tsx` (server, fetches data) + `tx-xxx-modal-client.tsx` (client, form + hooks).
+
 import { useState, useEffect, useTransition } from "react";
 import { Modal } from "@/components/modal";
 import { useToast } from "@/components/toast/use-toast";
