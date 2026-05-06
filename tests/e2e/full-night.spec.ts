@@ -53,10 +53,11 @@ test("full night: open session, add player, buy-in, cash-out, close", async ({ p
   await page.reload();
   await expect(page.getByText("$500.00").first()).toBeVisible();
 
-  // Cash-out $500 (5 × $100) via the Quick Actions modal
+  // Cash-out $500 via the Quick Actions modal.
+  // Default mode (no Settings toggle flipped) is the simple "Total amount" input.
   await page.getByRole("button", { name: /− Cash-out/ }).click();
   await page.getByLabel(/Player/).selectOption({ label: "Test Player" });
-  await page.locator("input[name=n100]").fill("5");
+  await page.locator("input[name=amount]").fill("500");
   await page.getByRole("button", { name: /Record Cash-out/ }).click();
 
   // Wait for Server Action to complete, then close the modal
