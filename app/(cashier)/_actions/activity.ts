@@ -95,3 +95,65 @@ export async function getPlayerSessionActivity(sessionId: string, playerId: stri
     },
   };
 }
+
+export interface StaffTotals {
+  rakeDrops: string;
+  tipDrops: string;
+  dropCount: number;
+  lastDropAt: string | null;
+}
+
+export interface StaffActivity {
+  rows: ActivityRow[];
+  totals: StaffTotals;
+}
+
+export async function getStaffSessionActivity(sessionId: string, staffId: string): Promise<StaffActivity> {
+  const txs = await prisma.transaction.findMany({
+    where: { sessionId, staffId },
+    include: { game: true, table: true, staff: true, player: true },
+    orderBy: { createdAt: "asc" },
+  });
+
+  const rows: ActivityRow[] = txs.map((t) => ({
+    id: t.id,
+    createdAt: t.createdAt.toISOString(),
+    type: t.type,
+    amount: t.amount.toString(),
+    method: t.method,
+    note: t.note,
+    gameName: t.game?.name ?? null,
+    tableName: t.table?.name ?? null,
+    reversesId: t.reversesId,
+    staffName: t.staff?.name ?? null,
+    playerName: t.player?.displayName ?? null,
+  }));
+
+  let rakeDrops = new Decimal(0);
+  let tipDrops = new Decimal(0);
+  let dropCount = 0;
+  let lastDropAt: Date | null = null;
+
+  for (const t of txs) {
+    if (t.reversesId) continue;
+    if (t.type === "RAKE") {
+      rakeDrops = rakeDrops.add(t.amount.toString());
+      dropCount++;
+      if (!lastDropAt || t.createdAt > lastDropAt) lastDropAt = t.createdAt;
+    } else if (t.type === "TIP_DROP") {
+      tipDrops = tipDrops.add(t.amount.toString());
+      dropCount++;
+      if (!lastDropAt || t.createdAt > lastDropAt) lastDropAt = t.createdAt;
+    }
+  }
+
+  return {
+    rows,
+    totals: {
+      rakeDrops: rakeDrops.toString(),
+      tipDrops: tipDrops.toString(),
+      dropCount,
+      lastDropAt: lastDropAt ? lastDropAt.toISOString() : null,
+    },
+  };
+}

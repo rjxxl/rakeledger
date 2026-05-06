@@ -1,4 +1,5 @@
 import { getDropTracker } from "@/lib/drops/last-drop";
+import { StaffNameTrigger } from "./staff-name-trigger";
 
 interface Props {
   sessionId: string;
@@ -37,7 +38,7 @@ export async function DropTracker({ sessionId }: Props) {
           const { label, cls } = ageColor(tracked);
           return (
             <li key={e.staffId} className="flex justify-between items-center px-2 py-1 rounded hover:bg-white/5">
-              <span className="text-slate-200">{e.staffName}</span>
+              <StaffNameTrigger sessionId={sessionId} staffId={e.staffId} staffName={e.staffName} />
               <span className={`font-mono ${cls}`}>{label}</span>
             </li>
           );

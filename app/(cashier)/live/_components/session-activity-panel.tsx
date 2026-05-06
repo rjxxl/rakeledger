@@ -5,8 +5,10 @@ import type { ActivityRow } from "../../_actions/activity";
 
 export interface SummaryItem {
   label: string;
-  value: string; // numeric string
+  value: string;
   emphasize?: boolean;
+  /** When true, render value as plain text instead of through <Money>. */
+  raw?: boolean;
 }
 
 interface PanelProps {
@@ -25,7 +27,7 @@ export function SessionActivityPanel({ title, rows, summary }: PanelProps) {
             <div key={s.label} className="bg-black/30 border border-[var(--color-border)] rounded p-2">
               <div className="text-[0.65rem] uppercase tracking-wider text-slate-500">{s.label}</div>
               <div className={`font-mono tabular-nums text-sm mt-1 ${s.emphasize ? "text-amber-400 font-semibold" : ""}`}>
-                <Money amount={s.value} signed={s.emphasize} />
+                {s.raw ? s.value : <Money amount={s.value} signed={s.emphasize} />}
               </div>
             </div>
           ))}

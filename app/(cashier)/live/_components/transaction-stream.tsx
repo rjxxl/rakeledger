@@ -3,6 +3,7 @@ import { Money } from "@/components/money";
 import { prisma } from "@/lib/db";
 import type { AccountType } from "@prisma/client";
 import { PlayerNameTrigger } from "./player-name-trigger";
+import { StaffNameTrigger } from "./staff-name-trigger";
 
 interface TransactionStreamProps {
   sessionId: string;
@@ -57,8 +58,10 @@ export async function TransactionStream({ sessionId, activeGameId }: Transaction
               <div>
                 {tx.player ? (
                   <PlayerNameTrigger sessionId={sessionId} playerId={tx.player.id} playerName={tx.player.displayName} />
+                ) : tx.staff ? (
+                  <StaffNameTrigger sessionId={sessionId} staffId={tx.staff.id} staffName={tx.staff.name} />
                 ) : (
-                  <span className="text-slate-200">{tx.staff?.name ?? "—"}</span>
+                  <span className="text-slate-200">—</span>
                 )}
                 {tx.game && <span className="text-slate-500"> · {tx.game.name}</span>}
                 {tx.table && <span className="text-slate-500"> / {tx.table.name}</span>}
