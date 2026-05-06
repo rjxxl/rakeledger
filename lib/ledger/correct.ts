@@ -84,39 +84,48 @@ export async function correctTransaction(args: CorrectTransactionArgs) {
     };
   });
 
-  return await prisma.$transaction(async () => {
-    const reversal = await createTransaction({
-      sessionId: original.sessionId,
-      gameId: original.gameId,
-      type: original.type,
-      createdById: args.reversedById,
-      amount: originalAmount.neg(),
-      method: original.method as PaymentMethod,
-      playerId: original.playerId,
-      staffId: original.staffId,
-      tableId: original.tableId,
-      reversesId: original.id,
-      note: `REVERSAL of ${original.id}: ${args.reason}`,
-      entries: original.ledgerEntries.map((e) => ({
-        account: e.account as AccountType,
-        delta: new Decimal(e.delta.toString()).neg(),
-        gameId: e.gameId,
-      })),
-    });
+  // Atomicity: both writes share the same `tx` client, so if either createTransaction
+  // throws (validation, balance trigger, FK error), Prisma rolls back BOTH writes.
+  // The original `args.originalId` row remains untouched in that case.
+  return await prisma.$transaction(async (tx) => {
+    const reversal = await createTransaction(
+      {
+        sessionId: original.sessionId,
+        gameId: original.gameId,
+        type: original.type,
+        createdById: args.reversedById,
+        amount: originalAmount.neg(),
+        method: original.method as PaymentMethod,
+        playerId: original.playerId,
+        staffId: original.staffId,
+        tableId: original.tableId,
+        reversesId: original.id,
+        note: `REVERSAL of ${original.id}: ${args.reason}`,
+        entries: original.ledgerEntries.map((e) => ({
+          account: e.account as AccountType,
+          delta: new Decimal(e.delta.toString()).neg(),
+          gameId: e.gameId,
+        })),
+      },
+      tx
+    );
 
-    const corrected = await createTransaction({
-      sessionId: original.sessionId,
-      gameId: original.gameId,
-      type: original.type,
-      createdById: args.reversedById,
-      amount: newAmount,
-      method: newMethod,
-      playerId: args.overrides.playerId !== undefined ? args.overrides.playerId : original.playerId,
-      staffId: args.overrides.staffId !== undefined ? args.overrides.staffId : original.staffId,
-      tableId: args.overrides.tableId !== undefined ? args.overrides.tableId : original.tableId,
-      note: args.overrides.note !== undefined ? args.overrides.note : `Corrected from ${original.id}: ${args.reason}`,
-      entries: newEntries,
-    });
+    const corrected = await createTransaction(
+      {
+        sessionId: original.sessionId,
+        gameId: original.gameId,
+        type: original.type,
+        createdById: args.reversedById,
+        amount: newAmount,
+        method: newMethod,
+        playerId: args.overrides.playerId !== undefined ? args.overrides.playerId : original.playerId,
+        staffId: args.overrides.staffId !== undefined ? args.overrides.staffId : original.staffId,
+        tableId: args.overrides.tableId !== undefined ? args.overrides.tableId : original.tableId,
+        note: args.overrides.note !== undefined ? args.overrides.note : `Corrected from ${original.id}: ${args.reason}`,
+        entries: newEntries,
+      },
+      tx
+    );
 
     return { reversal, corrected };
   });

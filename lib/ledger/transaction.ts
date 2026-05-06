@@ -1,5 +1,5 @@
 import Decimal from "decimal.js";
-import type { TransactionType, PaymentMethod } from "@prisma/client";
+import type { TransactionType, PaymentMethod, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { validateBalanced, BalanceError, type LedgerEntryInput } from "./validate";
 
@@ -29,8 +29,15 @@ export interface CreateTransactionArgs {
 /**
  * Creates a Transaction with its LedgerEntries in a single DB transaction.
  * Validates double-entry balance before insert. The DB trigger validates again at COMMIT.
+ *
+ * If `txClient` is provided, the write runs inline on that client (no nested
+ * $transaction). This lets callers compose multiple writes atomically — see
+ * `correctTransaction` for the canonical case.
  */
-export async function createTransaction(args: CreateTransactionArgs) {
+export async function createTransaction(
+  args: CreateTransactionArgs,
+  txClient?: Prisma.TransactionClient
+) {
   try {
     validateBalanced(args.entries);
   } catch (e) {
@@ -40,8 +47,8 @@ export async function createTransaction(args: CreateTransactionArgs) {
     throw e;
   }
 
-  return await prisma.$transaction(async (tx) => {
-    const created = await tx.transaction.create({
+  const run = async (tx: Prisma.TransactionClient) => {
+    return await tx.transaction.create({
       data: {
         sessionId: args.sessionId,
         gameId: args.gameId ?? null,
@@ -65,9 +72,10 @@ export async function createTransaction(args: CreateTransactionArgs) {
       },
       include: { ledgerEntries: true },
     });
+  };
 
-    return created;
-  });
+  if (txClient) return run(txClient);
+  return prisma.$transaction(run);
 }
 
 export interface ReverseTransactionArgs {
@@ -76,8 +84,12 @@ export interface ReverseTransactionArgs {
   reason: string;
 }
 
-export async function reverseTransaction(args: ReverseTransactionArgs) {
-  const original = await prisma.transaction.findUnique({
+export async function reverseTransaction(
+  args: ReverseTransactionArgs,
+  txClient?: Prisma.TransactionClient
+) {
+  const client = txClient ?? prisma;
+  const original = await client.transaction.findUnique({
     where: { id: args.transactionId },
     include: { ledgerEntries: true },
   });
@@ -96,18 +108,21 @@ export async function reverseTransaction(args: ReverseTransactionArgs) {
     gameId: e.gameId,
   }));
 
-  return await createTransaction({
-    sessionId: original.sessionId,
-    gameId: original.gameId,
-    type: original.type,
-    createdById: args.reversedById,
-    amount: new Decimal(original.amount.toString()).neg(),
-    method: original.method,
-    playerId: original.playerId,
-    staffId: original.staffId,
-    tableId: original.tableId,
-    note: `REVERSAL of ${original.id}: ${args.reason}`,
-    reversesId: original.id,
-    entries: negatedEntries,
-  });
+  return await createTransaction(
+    {
+      sessionId: original.sessionId,
+      gameId: original.gameId,
+      type: original.type,
+      createdById: args.reversedById,
+      amount: new Decimal(original.amount.toString()).neg(),
+      method: original.method,
+      playerId: original.playerId,
+      staffId: original.staffId,
+      tableId: original.tableId,
+      note: `REVERSAL of ${original.id}: ${args.reason}`,
+      reversesId: original.id,
+      entries: negatedEntries,
+    },
+    txClient
+  );
 }
