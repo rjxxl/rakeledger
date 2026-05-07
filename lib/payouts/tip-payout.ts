@@ -60,6 +60,10 @@ export async function computeTipPayouts(sessionId: string): Promise<TipPayoutRow
     }
   }
 
+  // TODO(Phase A): scope by clubId once query refactor lands. Today this is single-tenant-safe
+  // because exactly one SystemSettings row exists; with two clubs it would silently pick whichever
+  // Postgres returns first (no ORDER BY) and leak tax rates between tenants. Derive clubId from
+  // the session (sessionId → game → clubId) and pass `where: { clubId }` here.
   const settings = await prisma.systemSettings.findFirst();
   const systemDefaultRate = new Decimal((settings?.defaultTipTaxRate ?? 0.20).toString());
 
