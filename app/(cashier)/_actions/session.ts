@@ -7,16 +7,19 @@ import { createTransaction } from "@/lib/ledger/transaction";
 import { getAccountBalance } from "@/lib/ledger/balance";
 import { ACCOUNTS } from "@/lib/ledger/accounts";
 import { getCashierUserId } from "./_cashier";
+import { getActiveClubId } from "@/lib/active-user";
 
 export async function openSession(formData: FormData): Promise<void> {
   const openingCashRaw = formData.get("openingCash")?.toString() ?? "0";
   const openingCash = new Decimal(openingCashRaw || "0");
   const cashierId = await getCashierUserId();
+  const clubId = await getActiveClubId();
 
   const session = await prisma.session.create({
     data: {
       openedById: cashierId,
       openingCash: openingCash.toString(),
+      clubId,
     },
   });
 
@@ -24,8 +27,9 @@ export async function openSession(formData: FormData): Promise<void> {
   const game = await prisma.game.create({
     data: {
       sessionId: session.id,
-      name: "Main Game",
+      name: process.env.SEED_DEFAULT_GAME_NAME ?? "Main Game",
       rakeSplitConfig: { type: "even" },
+      clubId,
     },
   });
 

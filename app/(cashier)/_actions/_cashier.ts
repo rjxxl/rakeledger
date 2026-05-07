@@ -1,15 +1,12 @@
 "use server";
 
-import { prisma } from "@/lib/db";
-
-const CASHIER_EMAIL = "cashier@dev.local";
+import { getActiveUserId } from "@/lib/active-user";
 
 /**
- * Returns the implicit cashier user's ID. In Plan 1 the cashier is hardcoded —
- * Plan 2 will replace this with auth-derived user IDs.
+ * Returns the active user's ID. Backward-compatible name retained from Plan 1
+ * to avoid touching every Server Action; the underlying lookup now uses the
+ * Auth.js session instead of a hardcoded email.
  */
 export async function getCashierUserId(): Promise<string> {
-  const cashier = await prisma.user.findUnique({ where: { email: CASHIER_EMAIL } });
-  if (!cashier) throw new Error("Cashier user not seeded — run `npx prisma db seed`");
-  return cashier.id;
+  return getActiveUserId();
 }
