@@ -3,8 +3,13 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  // Runtime queries: pooled URL (pgbouncer transaction mode in serverless hosts like Neon).
+  url       = env("DATABASE_URL")
+  // Migrations & CLI introspection: direct (non-pooled) URL. pgbouncer's transaction-mode
+  // pooling drops session-scoped state, breaking migration steps like CREATE TYPE.
+  // For local dev (single Postgres, no pooler), set DIRECT_URL to the same value as DATABASE_URL.
+  directUrl = env("DIRECT_URL")
 }
 
 enum UserRole {
