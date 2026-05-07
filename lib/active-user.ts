@@ -12,12 +12,14 @@ export class NotAuthenticatedError extends Error {
  * Returns the currently signed-in User row from the DB, plus their active Club.
  * Throws NotAuthenticatedError if no session.
  *
- * In tests (process.env.NODE_ENV === "test"), falls back to looking up
- * `process.env.TEST_USER_EMAIL` (default "test-cashier@dev"). Most tests use
- * `createTransaction` directly with `createdById: "test-cashier"` and don't hit this path.
+ * When `process.env.AUTH_BYPASS_FOR_TESTS === "1"`, falls back to looking up
+ * `process.env.TEST_USER_EMAIL` (default "test-cashier@dev"). This explicit gate
+ * is set in `.env.test` (vitest) and `.env.e2e` (Playwright dev server) and is
+ * NEVER set in production. Most vitest tests use `createTransaction` directly
+ * with `createdById: "test-cashier"` and don't hit this path.
  */
 export async function getActiveUser() {
-  if (process.env.NODE_ENV === "test") {
+  if (process.env.AUTH_BYPASS_FOR_TESTS === "1") {
     const email = process.env.TEST_USER_EMAIL ?? "test-cashier@dev";
     const user = await prisma.user.findUnique({
       where: { email },

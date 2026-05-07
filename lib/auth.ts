@@ -45,6 +45,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       if (!dbUser || dbUser.status !== "ACTIVE") return false;
       return true;
     },
+    // TODO(phase-a): Refresh activeClubId/activeClubName on every JWT cycle (or invalidate session
+    // on ClubMembership change). Right now we only resolve them on initial sign-in, so a user's
+    // session keeps the old clubId for up to 30 days even if their membership is moved/revoked.
     async jwt({ token, user }) {
       // First sign-in: load DB user + active club into the token
       if (user?.email) {
@@ -68,6 +71,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       return token;
     },
     async session({ session, token }) {
+      if (!token.dbUserId) {
+        // Token didn't get populated (shouldn't happen post-Plan-2c, but defense-in-depth)
+        throw new Error("Session token is missing dbUserId — refusing to construct session");
+      }
       session.user.id = token.dbUserId as string;
       session.user.clubId = (token.activeClubId as string | null) ?? null;
       session.user.clubName = (token.activeClubName as string | null) ?? null;

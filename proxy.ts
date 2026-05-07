@@ -12,11 +12,17 @@ const PUBLIC_PATHS = ["/auth/signin", "/auth/error", "/api/auth"];
 //      session, otherwise redirect to /auth/signin?callbackUrl=...
 export default auth((req) => {
   const { nextUrl } = req;
-  const isPublic = PUBLIC_PATHS.some((p) => nextUrl.pathname.startsWith(p));
-  const isAuthenticated = !!req.auth;
-
   const headers = new Headers(req.headers);
   headers.set("x-pathname", nextUrl.pathname);
+
+  // Test/E2E bypass — only honored when explicitly opted in via env var.
+  // NEVER set this env var in production.
+  if (process.env.AUTH_BYPASS_FOR_TESTS === "1") {
+    return NextResponse.next({ request: { headers } });
+  }
+
+  const isPublic = PUBLIC_PATHS.some((p) => nextUrl.pathname.startsWith(p));
+  const isAuthenticated = !!req.auth;
 
   if (isPublic) {
     return NextResponse.next({ request: { headers } });

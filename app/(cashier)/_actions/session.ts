@@ -14,6 +14,11 @@ export async function openSession(formData: FormData): Promise<void> {
   const openingCash = new Decimal(openingCashRaw || "0");
   const cashierId = await getCashierUserId();
   const clubId = await getActiveClubId();
+  if (!clubId) {
+    throw new Error(
+      "Cannot open session — your account isn't a member of any club. Contact your cardroom owner to be added."
+    );
+  }
 
   const session = await prisma.session.create({
     data: {
