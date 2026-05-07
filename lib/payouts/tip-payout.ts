@@ -60,7 +60,7 @@ export async function computeTipPayouts(sessionId: string): Promise<TipPayoutRow
     }
   }
 
-  const settings = await prisma.systemSettings.findUnique({ where: { id: 1 } });
+  const settings = await prisma.systemSettings.findFirst();
   const systemDefaultRate = new Decimal((settings?.defaultTipTaxRate ?? 0.20).toString());
 
   const users = await prisma.user.findMany({

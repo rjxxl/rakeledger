@@ -26,11 +26,8 @@ describe("computeTipPayouts", () => {
     });
     dealerId = dealer.id;
     waitressId = waitress.id;
-    await testPrisma.systemSettings.upsert({
-      where: { id: 1 },
-      create: { id: 1, defaultTipTaxRate: "0.20" },
-      update: { defaultTipTaxRate: "0.20" },
-    });
+    // SystemSettings.defaultTipTaxRate defaults to 0.20 in schema; the test-db seed
+    // already creates the row for test-club. Nothing to set up here.
   });
 
   async function tipDrop(staffId: string, amount: number) {

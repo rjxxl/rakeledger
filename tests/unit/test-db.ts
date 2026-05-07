@@ -22,11 +22,30 @@ export async function resetDatabase() {
       "Session",
       "Table",
       "Player",
+      "ClubMembership",
+      "Club",
       "UserCapabilityGrant",
-      "User"
+      "User",
+      "SystemSettings"
     RESTART IDENTITY CASCADE
   `);
-  await testPrisma.user.create({
-    data: { id: "test-cashier", name: "Test Cashier", email: "test-cashier@dev", role: "CASHIER" },
+
+  // Seed a deterministic test club + cashier user + membership so tests can write
+  // transactions with createdById: "test-cashier" and clubId: "test-club".
+  const club = await testPrisma.club.create({
+    data: { id: "test-club", name: "Test Club", slug: "test-club" },
   });
+  await testPrisma.user.create({
+    data: {
+      id: "test-cashier",
+      name: "Test Cashier",
+      email: "test-cashier@dev",
+      role: "CASHIER",
+      clubId: club.id,
+    },
+  });
+  await testPrisma.clubMembership.create({
+    data: { userId: "test-cashier", clubId: club.id, role: "OWNER", status: "ACTIVE" },
+  });
+  await testPrisma.systemSettings.create({ data: { clubId: club.id } });
 }
