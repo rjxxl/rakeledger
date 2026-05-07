@@ -103,19 +103,77 @@ When the second room is ready to onboard, the platform owner (you) provisions th
    - Middleware redirects them to `/live`
    - Every query they make is filtered by their `clubId` — they only ever see Joey's Cardroom data
 
-4. **Joey adds his team** — at this stage there's no invite UI yet (Phase C), so he tells you "add my cashier Alex (alex@…) and dealer Maria (maria@…)" and you run the provisioning script again with `--add-member` or similar.
+4. **Joey adds his team** — at this stage there's no invite UI yet (Phase C), so he tells you "add my cashier Alex (alex@…) and dealer Maria (maria@…)" and you run a separate `add-member.ts` script (next subsection).
+
+### Adding members to an existing club (`add-member.ts`)
+
+After a club exists, individual staff additions go through a smaller script. This is the workhorse you'll run more often than `provision-club.ts` — once per new staff member at any club.
+
+```bash
+npx tsx scripts/add-member.ts \
+  --club joeys \
+  --email alex@gmail.com \
+  --name "Alex Patel" \
+  --role CASHIER
+```
+
+The script:
+
+1. Looks up the `Club` by slug (errors clearly if not found)
+2. Looks up the `User` by email
+3. **If the user does NOT exist yet** (this is Alex's first club): creates the `User` row, then the `ClubMembership`
+4. **If the user already exists** (Alex already works at Friend's): creates only a new `ClubMembership { userId: alex_xyz, clubId: joeys, role: CASHIER }`. The existing User row is reused — same name, same email, same `userId` everywhere
+5. Prints what it did so you can confirm
+
+Either way, Alex can sign in immediately on her next visit and the new club shows up in her picker.
+
+### The same-cashier-at-multiple-clubs case
+
+The schema's `User`/`ClubMembership` split handles this naturally: one human, one Google account, one `User` row, multiple `ClubMembership` rows. Alex working at both Friend's Cardroom and Joey's Cardroom looks like:
+
+```
+User { id: alex_xyz, email: alex@gmail.com, name: "Alex Patel" }
+
+ClubMembership { userId: alex_xyz, clubId: friends, role: CASHIER, status: ACTIVE }
+ClubMembership { userId: alex_xyz, clubId: joeys,   role: CASHIER, status: ACTIVE }
+```
+
+**Sign-in flow with multiple memberships:**
+
+1. Alex clicks "Sign in with Google" → Google returns `alex@gmail.com`
+2. NextAuth looks up the User and reads her memberships
+3. Branches on count:
+   - One membership → auto-select, land on `/live`
+   - Multiple → show a club picker, Alex selects one, that club becomes "active" in the session cookie, land on `/live`
+4. A small dropdown in the nav header lets Alex switch the active club mid-shift without re-authenticating
+
+**What's per-club vs per-user:**
+
+| Thing | Scope |
+|-------|-------|
+| Sessions, players, transactions, ledger entries | Per-club. Alex at Friend's cannot see Joey's data even with manipulated URLs (middleware enforces club membership before queries run). |
+| Audit `createdById` on transactions | Same `userId` regardless of club. Friend's owner sees "recorded by Alex" only on Friend's transactions; Joey's owner sees the same Alex on Joey's transactions. |
+| Display name | One `User.name`. Both clubs see the same name. (Per-club display name override can be added to `ClubMembership` later if anyone needs it.) |
+| Role & capabilities | Per-club via `ClubMembership.role`. Alex can be CASHIER at one club and OWNER at another. |
+| Active in-progress session | Per-club. Alex switching clubs mid-shift leaves the other club's session open and unchanged. |
+
+**Edge cases:**
+
+- **Role revoked at one club** (Alex quits Friend's): `ClubMembership.status = "REMOVED"`. Friend's drops off her picker; Joey's stays. Audit history at Friend's still references her by `userId` — not deleted.
+- **Mistaken-club entry risk**: Alex switches to Joey's at noon, forgets, starts entering buy-ins for Friend's players into Joey's session at 4pm. The system can't prevent this. Mitigations to design into Phase D: prominent club name in the nav header (color-coded?), confirmation prompt on opening a session ("Open new session for **Joey's Cardroom**?").
+- **Dealers/waitresses at multiple clubs** (no app login, just receive tip payouts): same model. `User { role: DEALER }` row + memberships at each club. They never sign in, but tip payouts at each club are correctly attributed to their `userId`.
 
 ### Why this works without a sign-up UI
 
-Google OAuth handles authentication (proving the user is who they say). Your script handles **provisioning** (deciding who's allowed in and which club they belong to). There's no password to manage, no email verification flow to build, no invite tokens — Google does identity, you do authorization.
+Google OAuth handles authentication (proving the user is who they say). Your scripts handle **provisioning** (deciding who's allowed in and which club they belong to). There's no password to manage, no email verification flow to build, no invite tokens — Google does identity, you do authorization.
 
 ### What's missing (deferred to Phase C)
 
-- No self-serve sign-up: Joey can't onboard himself; you have to run the script
-- No invite flow: Joey can't invite Alex; you have to add Alex manually
-- No club-switcher: a user belongs to exactly one club (or you handle multi-club via separate Google accounts for now)
+- No self-serve sign-up: Joey can't onboard himself; you run `provision-club.ts`
+- No invite flow: Joey can't add Alex; you run `add-member.ts`
 - No password reset: irrelevant — Google handles it
 - No public landing page: visitors hitting the URL just see the sign-in screen
+- No "edit my display name" UI: changes to `User.name` go through Prisma Studio or a one-off script
 
 That's all fine for 2-5 rooms. When you have 5+ rooms or one of them needs to onboard a teammate without you in the loop, build Phase C.
 
@@ -135,10 +193,26 @@ That's all fine for 2-5 rooms. When you have 5+ rooms or one of them needs to on
 
 When Phase A + stripped-down B is complete, this should be true:
 
-- [ ] Schema has `Club` model with at least one row ("Friend's Cardroom")
+**Schema & data**
+- [ ] `Club` model exists with at least one row ("Friend's Cardroom")
+- [ ] `ClubMembership` join table exists with `userId`, `clubId`, `role`, `status` columns
 - [ ] Every scoped model (`User`, `Session`, `Player`, `Table`, `Game`, `Marker`, `SystemSettings`, `Transaction`) has a `clubId` FK populated for all existing rows
 - [ ] Every query in the app filters by the active user's `clubId`
-- [ ] A second club can be provisioned via `npx tsx scripts/provision-club.ts --name … --owner-email …`
-- [ ] Two users from different clubs cannot see each other's data — verified by a test
-- [ ] Sign-in via Google OAuth works for both clubs' owners
-- [ ] Cross-club leak is prevented at the middleware layer, not just the query layer (defense in depth)
+
+**Provisioning scripts**
+- [ ] `scripts/provision-club.ts` creates a new Club + owner User + ClubMembership + default SystemSettings + (optional) default Game/Table in one transaction
+- [ ] `scripts/add-member.ts` adds a User to an existing Club:
+  - Creates the User row if email doesn't exist
+  - Reuses the existing User row if email does exist (the "same cashier at multiple clubs" case)
+  - Always creates a new ClubMembership row scoped to the target club + role
+
+**Multi-tenant correctness**
+- [ ] Two users from different clubs cannot see each other's data — verified by a test that creates two clubs, adds different transactions to each, signs in as each user, and asserts they can only read their own club's rows
+- [ ] A user with memberships at multiple clubs sees a club picker on sign-in (or auto-routes if exactly one membership)
+- [ ] Switching active club via the nav dropdown updates the session cookie and revalidates the page
+- [ ] Cross-club leak is prevented at the middleware layer, not just the query layer (defense in depth) — verified by a test that crafts a request with a club-mismatched URL parameter and asserts a 403/redirect before any query runs
+
+**Auth**
+- [ ] Sign-in via Google OAuth works for users at any club
+- [ ] An email NOT present in the User table cannot sign in (provisioning is required first)
+- [ ] A `ClubMembership.status = "REMOVED"` membership is filtered out of the picker but the User row + audit history remain intact
