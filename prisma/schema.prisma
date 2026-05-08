@@ -249,6 +249,8 @@ model Session {
   clubId      String?
   club        Club?         @relation(fields: [clubId], references: [id], onDelete: SetNull)
 
+  hostUserIds       String[]              @default([])
+
   games             Game[]
   transactions      Transaction[]
   accountCloses     SessionAccountClose[]
