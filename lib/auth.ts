@@ -1,11 +1,38 @@
 import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
 import { prisma } from "@/lib/db";
+import type { PrismaClient } from "@prisma/client";
 
-export function isEmailAllowed(email: string | null | undefined, allowList: string | undefined | null): boolean {
-  if (!email || !allowList) return false;
-  const allowed = allowList.split(",").map((e) => e.trim().toLowerCase()).filter(Boolean);
-  return allowed.includes(email.toLowerCase());
+/**
+ * Pure policy: can this email sign in?
+ *
+ * Rules:
+ *  1. Must reference a User row that exists.
+ *  2. User.status must be ACTIVE.
+ *  3. User must have at least one ClubMembership with status=ACTIVE.
+ *
+ * Exported for testability. The signIn callback below calls this with the
+ * default prisma client.
+ */
+export async function canSignIn(
+  email: string | null | undefined,
+  client: PrismaClient = prisma
+): Promise<boolean> {
+  if (!email) return false;
+  const dbUser = await client.user.findUnique({
+    where: { email: email.toLowerCase() },
+    include: {
+      memberships: {
+        where: { status: "ACTIVE" },
+        select: { id: true },
+        take: 1,
+      },
+    },
+  });
+  if (!dbUser) return false;
+  if (dbUser.status !== "ACTIVE") return false;
+  if (dbUser.memberships.length === 0) return false;
+  return true;
 }
 
 declare module "next-auth" {
@@ -35,24 +62,16 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   trustHost: true,
   callbacks: {
     async signIn({ user }) {
-      // Allowlist gate — even if Google OAuth succeeds, we reject any email
-      // not on AUTH_ALLOWED_EMAILS.
-      if (!isEmailAllowed(user.email, process.env.AUTH_ALLOWED_EMAILS)) {
-        return false;
-      }
-      // Provisioning gate — must have an ACTIVE User row in our DB.
-      const dbUser = await prisma.user.findUnique({ where: { email: user.email! } });
-      if (!dbUser || dbUser.status !== "ACTIVE") return false;
-      return true;
+      return await canSignIn(user.email);
     },
     // TODO(phase-a): Refresh activeClubId/activeClubName on every JWT cycle (or invalidate session
     // on ClubMembership change). Right now we only resolve them on initial sign-in, so a user's
     // session keeps the old clubId for up to 30 days even if their membership is moved/revoked.
+    // Documented as best-effort revoke; nuclear option = rotate AUTH_SECRET.
     async jwt({ token, user }) {
-      // First sign-in: load DB user + active club into the token
       if (user?.email) {
         const dbUser = await prisma.user.findUnique({
-          where: { email: user.email },
+          where: { email: user.email.toLowerCase() },
           include: {
             memberships: {
               where: { status: "ACTIVE" },
@@ -72,7 +91,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     },
     async session({ session, token }) {
       if (!token.dbUserId) {
-        // Token didn't get populated (shouldn't happen post-Plan-2c, but defense-in-depth)
         throw new Error("Session token is missing dbUserId — refusing to construct session");
       }
       session.user.id = token.dbUserId as string;
