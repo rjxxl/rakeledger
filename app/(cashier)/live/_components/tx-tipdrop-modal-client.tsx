@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Modal } from "@/components/modal";
 import { useToast } from "@/components/toast/use-toast";
 import { useFormAction } from "@/components/use-form-action";
@@ -29,6 +30,23 @@ function TipDropForm({ close, sessionId, gameId, staff }: FormProps) {
       close();
     },
   });
+
+  if (staff.length === 0) {
+    return (
+      <div className="flex flex-col gap-3">
+        <p className="text-sm text-slate-400">
+          No dealers or waitresses have been added yet. Tip drops need a recipient.
+        </p>
+        <Link
+          href="/staff"
+          onClick={close}
+          className="bg-amber-500 text-black font-semibold rounded px-4 py-2 hover:bg-amber-400 text-center"
+        >
+          Go to Staff
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-3">

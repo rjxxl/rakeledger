@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Modal } from "@/components/modal";
 import { useToast } from "@/components/toast/use-toast";
 import { useFormAction } from "@/components/use-form-action";
@@ -54,33 +55,49 @@ function MarkerForms({ close, sessionId, gameId, players, openMarkers }: FormPro
 
   return (
     <div className="grid grid-cols-2 gap-4">
-      <form onSubmit={issue.onSubmit} className="flex flex-col gap-3 border-r border-[var(--color-border)] pr-4">
-        <input type="hidden" name="sessionId" value={sessionId} />
-        <input type="hidden" name="gameId" value={gameId} />
-        <h3 className="font-semibold text-amber-500 text-sm">Issue marker</h3>
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="text-slate-400">Player</span>
-          <select name="playerId" required className="bg-black/40 border border-[var(--color-border)] rounded px-3 py-2">
-            <option value="">— select —</option>
-            {players.map((p) => <option key={p.id} value={p.id}>{p.displayName}</option>)}
-          </select>
-        </label>
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="text-slate-400">Amount</span>
-          <input name="amount" type="number" step="0.01" min="0.01" required
-            className="bg-black/40 border border-[var(--color-border)] rounded px-3 py-2 font-mono" />
-        </label>
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="text-slate-400">Collateral note</span>
-          <input name="collateral" placeholder="e.g. gold watch"
-            className="bg-black/40 border border-[var(--color-border)] rounded px-3 py-2" />
-        </label>
-        {issue.error && <p className="text-red-400 text-xs">{issue.error}</p>}
-        <button type="submit" disabled={issue.pending}
-          className="bg-amber-500 text-black font-semibold rounded px-4 py-2 hover:bg-amber-400 disabled:opacity-50">
-          Issue
-        </button>
-      </form>
+      {players.length === 0 ? (
+        <div className="flex flex-col gap-3 border-r border-[var(--color-border)] pr-4">
+          <h3 className="font-semibold text-amber-500 text-sm">Issue marker</h3>
+          <p className="text-sm text-slate-400">
+            No players have been added yet. Markers are issued to a player.
+          </p>
+          <Link
+            href="/players/new"
+            onClick={close}
+            className="bg-amber-500 text-black font-semibold rounded px-4 py-2 hover:bg-amber-400 text-center"
+          >
+            Add a player
+          </Link>
+        </div>
+      ) : (
+        <form onSubmit={issue.onSubmit} className="flex flex-col gap-3 border-r border-[var(--color-border)] pr-4">
+          <input type="hidden" name="sessionId" value={sessionId} />
+          <input type="hidden" name="gameId" value={gameId} />
+          <h3 className="font-semibold text-amber-500 text-sm">Issue marker</h3>
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="text-slate-400">Player</span>
+            <select name="playerId" required className="bg-black/40 border border-[var(--color-border)] rounded px-3 py-2">
+              <option value="">— select —</option>
+              {players.map((p) => <option key={p.id} value={p.id}>{p.displayName}</option>)}
+            </select>
+          </label>
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="text-slate-400">Amount</span>
+            <input name="amount" type="number" step="0.01" min="0.01" required
+              className="bg-black/40 border border-[var(--color-border)] rounded px-3 py-2 font-mono" />
+          </label>
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="text-slate-400">Collateral note</span>
+            <input name="collateral" placeholder="e.g. gold watch"
+              className="bg-black/40 border border-[var(--color-border)] rounded px-3 py-2" />
+          </label>
+          {issue.error && <p className="text-red-400 text-xs">{issue.error}</p>}
+          <button type="submit" disabled={issue.pending}
+            className="bg-amber-500 text-black font-semibold rounded px-4 py-2 hover:bg-amber-400 disabled:opacity-50">
+            Issue
+          </button>
+        </form>
+      )}
 
       <form onSubmit={repay.onSubmit} className="flex flex-col gap-3">
         <input type="hidden" name="sessionId" value={sessionId} />

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { Modal } from "@/components/modal";
 import { useToast } from "@/components/toast/use-toast";
 import { useFormAction } from "@/components/use-form-action";
@@ -42,6 +43,23 @@ function CashOutForm({ close, sessionId, gameId, players }: FormProps) {
       close();
     },
   });
+
+  if (players.length === 0) {
+    return (
+      <div className="flex flex-col gap-3">
+        <p className="text-sm text-slate-400">
+          No players have been added yet. Cash-outs are recorded against a player.
+        </p>
+        <Link
+          href="/players/new"
+          onClick={close}
+          className="bg-amber-500 text-black font-semibold rounded px-4 py-2 hover:bg-amber-400 text-center"
+        >
+          Add a player
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-3">
