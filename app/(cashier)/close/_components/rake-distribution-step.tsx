@@ -68,7 +68,7 @@ export function RakeDistributionStep({ sessionId, gameId, gameName, totalRake: t
     return (
       <div className="bg-[var(--color-panel)] border border-[var(--color-border)] rounded-lg p-4">
         <p className="text-sm text-amber-400">
-          {gameName}: select at least one host above to distribute rake ($
+          {gameName}: Select at least one host above to distribute rake ($
           {totalRake.toString()}).
         </p>
       </div>

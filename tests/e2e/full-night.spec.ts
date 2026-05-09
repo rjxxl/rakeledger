@@ -2,19 +2,16 @@ import { test, expect } from "@playwright/test";
 import { execSync } from "node:child_process";
 
 test.beforeEach(async () => {
-  const E2E_URL = "postgresql://rakeledger:rakeledger_dev@localhost:5432/rakeledger_e2e?schema=public";
-  execSync("npx prisma migrate reset --force --skip-generate --skip-seed", {
-    stdio: "inherit",
-    env: {
-      ...process.env,
-      DATABASE_URL: E2E_URL,
-      PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION: "1",
+  // Use `npx dotenv -e .env.e2e -- ...` because Prisma CLI loads `.env` after our env: {} block,
+  // overwriting any DATABASE_URL we'd pass directly. Wrapping in dotenv-cli ensures .env.e2e wins.
+  execSync(
+    `npx dotenv -e .env.e2e -- npx prisma migrate reset --force --skip-generate --skip-seed`,
+    {
+      stdio: "inherit",
+      env: { ...process.env, PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION: "1" },
     },
-  });
-  execSync("npx prisma db seed", {
-    stdio: "inherit",
-    env: { ...process.env, DATABASE_URL: E2E_URL },
-  });
+  );
+  execSync(`npx dotenv -e .env.e2e -- npx prisma db seed`, { stdio: "inherit" });
 });
 
 test("full night: open session, add player, buy-in, cash-out, close", async ({ page }) => {
