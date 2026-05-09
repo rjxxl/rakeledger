@@ -6,13 +6,12 @@ import { ACCOUNTS } from "@/lib/ledger/accounts";
 import { Money } from "@/components/money";
 import { computeTipPayouts } from "@/lib/payouts/tip-payout";
 import { TipPayoutStep, type TipPayoutRowSerial } from "./_components/tip-payout-step";
-import { HouseTaxStep } from "./_components/house-tax-step";
-import { RakeDistributionStep } from "./_components/rake-distribution-step";
 import { WalksReturnsStep } from "./_components/walks-returns-step";
 import { getPlayersWithUnresolvedChips, getCandidateWalksForReturn } from "../_actions/walks";
 import { prisma } from "@/lib/db";
 import { runAllHeuristics } from "@/lib/reconciliation/heuristics";
 import { DivergenceFinder } from "./_components/divergence-finder";
+import { HostSelectorAndDistribution } from "./_components/host-selector-and-distribution";
 
 export default async function ClosePage() {
   const session = await getOpenSession();
@@ -33,28 +32,26 @@ export default async function ClosePage() {
     }))
   );
 
-  const owners = await prisma.user.findMany({
-    where: { role: { in: ["OWNER", "ADMIN", "CASHIER"] }, status: "ACTIVE" },
+  // Single candidate-staff query (replaces dual role-bucket queries).
+  // WAITRESS excluded because they're tip-pool recipients only; DEALER kept
+  // because the user explicitly wanted them on the host checklist for nights
+  // when a dealer also acts as a host.
+  const candidateStaff = await prisma.user.findMany({
+    where: {
+      clubId: session.clubId,
+      status: "ACTIVE",
+      role: { not: "WAITRESS" },
+    },
     orderBy: { name: "asc" },
-    select: { id: true, name: true },
-  });
-  const hosts = await prisma.user.findMany({
-    where: { role: { in: ["RUNNER", "CASHIER"] }, status: "ACTIVE" },
-    orderBy: { name: "asc" },
-    select: { id: true, name: true },
+    select: { id: true, name: true, role: true },
   });
 
-  function evenSplit(total: Decimal, count: number): Decimal[] {
-    if (count === 0) return [];
-    const baseDecimal = total.div(count).toDecimalPlaces(2, Decimal.ROUND_DOWN);
-    const totals = Array(count).fill(baseDecimal);
-    const allocated = baseDecimal.mul(count);
-    const remainder = total.sub(allocated);
-    if (!remainder.equals(0) && totals.length > 0) {
-      totals[0] = totals[0].add(remainder);
-    }
-    return totals;
+  if (session.games.length === 0) {
+    // Defensive: openSession always creates a default game, but if a future migration ever leaves a
+    // session without one, redirect rather than crash.
+    redirect("/live");
   }
+  const defaultGameId = session.games[0].id;
 
   const GAME_SCOPED = new Set(["RAKE_POOL", "PROMO_POOL", "TOURNAMENT_POOL"]);
   const expected: Record<string, string> = {};
@@ -69,36 +66,6 @@ export default async function ClosePage() {
       expected[account] = bal.toString();
     }
   }
-
-  const houseTaxRecipients = (() => {
-    const splits = evenSplit(houseTaxPool, owners.length);
-    return owners.map((o, i) => ({
-      userId: o.id,
-      userName: o.name,
-      amount: splits[i] ?? new Decimal(0),
-      method: "CASH" as const,
-    }));
-  })();
-
-  const rakeStepsData = rakePerGame.map((rp) => {
-    const splits = evenSplit(rp.total, hosts.length);
-    return {
-      ...rp,
-      recipients: hosts.map((h, i) => ({
-        userId: h.id,
-        userName: h.name,
-        amount: splits[i] ?? new Decimal(0),
-        method: "CASH" as const,
-      })),
-    };
-  });
-
-  if (session.games.length === 0) {
-    // Defensive: openSession always creates a default game, but if a future migration ever leaves a
-    // session without one, redirect rather than crash.
-    redirect("/live");
-  }
-  const defaultGameId = session.games[0].id;
 
   const chipFloatBalance = await getAccountBalance({ account: "CHIP_FLOAT", sessionId: session.id });
   const candidatePlayers = await getPlayersWithUnresolvedChips(session.id);
@@ -143,29 +110,19 @@ export default async function ClosePage() {
       </section>
 
       <section>
-        <h3 className="text-sm font-semibold text-slate-300 mb-2">Step 2 &mdash; Distribute house tax pool</h3>
-        <HouseTaxStep
+        <h3 className="text-sm font-semibold text-slate-300 mb-2">Hosts working tonight</h3>
+        <HostSelectorAndDistribution
           sessionId={session.id}
           gameId={defaultGameId}
+          candidateStaff={candidateStaff}
+          initialHostUserIds={session.hostUserIds}
           totalHouseTax={houseTaxPool.toString()}
-          initialRecipients={houseTaxRecipients.map(r => ({ ...r, amount: r.amount.toString() }))}
+          rakePerGame={rakePerGame.map((rp) => ({
+            gameId: rp.gameId,
+            gameName: rp.gameName,
+            total: rp.total.toString(),
+          }))}
         />
-      </section>
-
-      <section>
-        <h3 className="text-sm font-semibold text-slate-300 mb-2">Step 3 &mdash; Distribute rake (per game)</h3>
-        <div className="flex flex-col gap-3">
-          {rakeStepsData.map((rs) => (
-            <RakeDistributionStep
-              key={rs.gameId}
-              sessionId={session.id}
-              gameId={rs.gameId}
-              gameName={rs.gameName}
-              totalRake={rs.total.toString()}
-              initialRecipients={rs.recipients.map(r => ({ ...r, amount: r.amount.toString() }))}
-            />
-          ))}
-        </div>
       </section>
 
       <section>
