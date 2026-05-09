@@ -12,8 +12,6 @@ import {
 import { requireAdmin } from "@/lib/admin/require-admin";
 import { prisma } from "@/lib/db";
 
-const ROLE_VALUES: ClubMembershipRole[] = ["OWNER", "ADMIN", "CASHIER", "RUNNER"];
-
 const addSchema = z.object({
   email: z.string().email(),
   name: z.string().min(1).max(120),
@@ -122,5 +120,3 @@ export async function reAddMemberAction(formData: FormData) {
   await reAddMember({ membershipId: data.membershipId, role: data.role });
   revalidatePath("/settings/members");
 }
-
-export const ASSIGNABLE_ROLES = ROLE_VALUES;
