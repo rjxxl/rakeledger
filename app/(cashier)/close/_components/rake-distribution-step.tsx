@@ -64,6 +64,17 @@ export function RakeDistributionStep({ sessionId, gameId, gameName, totalRake: t
     return <p className="text-xs text-slate-500">{gameName}: no rake to distribute.</p>;
   }
 
+  if (recipients.length === 0) {
+    return (
+      <div className="bg-[var(--color-panel)] border border-[var(--color-border)] rounded-lg p-4">
+        <p className="text-sm text-amber-400">
+          {gameName}: select at least one host above to distribute rake ($
+          {totalRake.toString()}).
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-[var(--color-panel)] border border-[var(--color-border)] rounded-lg p-4">
       <header className="flex justify-between items-baseline mb-3">

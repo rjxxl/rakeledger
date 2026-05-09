@@ -55,6 +55,17 @@ export function HouseTaxStep({ sessionId, gameId, totalHouseTax: totalHouseTaxSt
     return <p className="text-sm text-slate-500">No house tax to distribute.</p>;
   }
 
+  if (recipients.length === 0) {
+    return (
+      <div className="bg-[var(--color-panel)] border border-[var(--color-border)] rounded-lg p-4">
+        <p className="text-sm text-amber-400">
+          Select at least one host above to distribute the house tax pool ($
+          {totalHouseTax.toString()}).
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-[var(--color-panel)] border border-[var(--color-border)] rounded-lg p-4">
       <header className="flex justify-between items-baseline mb-3">
