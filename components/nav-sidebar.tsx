@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ClubSwitcher } from "./club-switcher";
 
 interface NavItem {
   href: string;
@@ -32,11 +33,18 @@ function NavLink({ item, activePath }: { item: NavItem; activePath: string }) {
   );
 }
 
+interface MembershipOption {
+  clubId: string;
+  clubName: string;
+}
+
 interface NavSidebarProps {
   activePath: string;
   userName?: string | null;
   userEmail?: string | null;
-  clubName?: string | null;
+  activeClubId?: string | null;
+  activeClubName?: string | null;
+  memberships?: MembershipOption[];
   signOutAction?: () => Promise<void>;
 }
 
@@ -44,7 +52,9 @@ export function NavSidebar({
   activePath,
   userName = null,
   userEmail = null,
-  clubName = null,
+  activeClubId = null,
+  activeClubName = null,
+  memberships = [],
   signOutAction,
 }: NavSidebarProps) {
   return (
@@ -60,7 +70,11 @@ export function NavSidebar({
         <div className="mb-3 px-2 py-2 border-t border-[var(--color-border)] text-xs">
           <div className="text-slate-300 font-medium truncate">{userName}</div>
           <div className="text-slate-500 truncate">{userEmail}</div>
-          {clubName && <div className="text-amber-500 mt-1 truncate">{clubName}</div>}
+          <ClubSwitcher
+            activeClubId={activeClubId}
+            activeClubName={activeClubName}
+            memberships={memberships}
+          />
           {signOutAction && (
             <form action={signOutAction}>
               <button type="submit" className="text-slate-500 hover:text-amber-500 text-xs mt-2">

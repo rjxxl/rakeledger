@@ -64,11 +64,16 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     async signIn({ user }) {
       return await canSignIn(user.email);
     },
-    // TODO(phase-a): Refresh activeClubId/activeClubName on every JWT cycle (or invalidate session
-    // on ClubMembership change). Right now we only resolve them on initial sign-in, so a user's
-    // session keeps the old clubId for up to 30 days even if their membership is moved/revoked.
-    // Documented as best-effort revoke; nuclear option = rotate AUTH_SECRET.
-    async jwt({ token, user }) {
+    // First sign-in: load DB user + active club into the token.
+    // Update trigger: client-side useSession().update({ activeClubId }) calls this with
+    //   trigger === "update". We validate the user has an ACTIVE membership at the requested club
+    //   before swapping the token's activeClubId/activeClubName. Server is the trust boundary —
+    //   the client cannot put themselves into a club they're not a member of.
+    //
+    // TODO(phase-a): refresh activeClubId/activeClubName on every JWT cycle so revoked memberships
+    // become unreachable within one navigation. Today the JWT is rewritten only at sign-in or via
+    // explicit update; a revoked user's existing JWT keeps the stale clubId until expiry.
+    async jwt({ token, user, trigger, session }) {
       if (user?.email) {
         const dbUser = await prisma.user.findUnique({
           where: { email: user.email.toLowerCase() },
@@ -85,6 +90,21 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           const m = dbUser.memberships[0];
           token.activeClubId = m?.clubId ?? null;
           token.activeClubName = m?.club.name ?? null;
+        }
+      }
+      if (trigger === "update" && session && typeof session === "object") {
+        const requestedClubId = (session as { activeClubId?: unknown }).activeClubId;
+        if (typeof requestedClubId === "string" && token.dbUserId) {
+          const membership = await prisma.clubMembership.findUnique({
+            where: { userId_clubId: { userId: token.dbUserId as string, clubId: requestedClubId } },
+            include: { club: true },
+          });
+          if (membership && membership.status === "ACTIVE") {
+            token.activeClubId = membership.clubId;
+            token.activeClubName = membership.club.name;
+          }
+          // Silently ignore invalid switches — the client gets back the existing token unchanged.
+          // The switcher UI re-fetches `session` after update() so it'll surface the no-op visually.
         }
       }
       return token;

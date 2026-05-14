@@ -9,14 +9,21 @@ export class NotAuthenticatedError extends Error {
 }
 
 /**
- * Returns the currently signed-in User row from the DB, plus their active Club.
+ * Returns the currently signed-in User row from the DB.
+ *
+ * The returned `clubId` is the user's CURRENTLY ACTIVE club, sourced from the JWT
+ * (which the sidebar's club switcher can mutate via NextAuth's `update()`). The
+ * `User.clubId` column in the DB is just the "home" / initial default — for
+ * multi-club users, the JWT's clubId is the source of truth for which club they
+ * are currently operating in.
+ *
  * Throws NotAuthenticatedError if no session.
  *
  * When `process.env.AUTH_BYPASS_FOR_TESTS === "1"`, falls back to looking up
- * `process.env.TEST_USER_EMAIL` (default "test-cashier@dev"). This explicit gate
- * is set in `.env.test` (vitest) and `.env.e2e` (Playwright dev server) and is
- * NEVER set in production. Most vitest tests use `createTransaction` directly
- * with `createdById: "test-cashier"` and don't hit this path.
+ * `process.env.TEST_USER_EMAIL` (default "test-cashier@dev"). The bypass path
+ * uses `User.clubId` directly (no JWT involved). This explicit gate is set in
+ * `.env.test` (vitest) and `.env.e2e` (Playwright dev server) and is NEVER set
+ * in production.
  */
 export async function getActiveUser() {
   if (process.env.AUTH_BYPASS_FOR_TESTS === "1") {
@@ -36,7 +43,13 @@ export async function getActiveUser() {
     include: { club: true },
   });
   if (!user) throw new NotAuthenticatedError();
-  return user;
+
+  // JWT wins for clubId. If somehow the JWT has no clubId (shouldn't happen
+  // post-Plan-2c), fall back to User.clubId.
+  return {
+    ...user,
+    clubId: session.user.clubId ?? user.clubId,
+  };
 }
 
 /** Convenience: just the user id. Drop-in replacement for getCashierUserId(). */
