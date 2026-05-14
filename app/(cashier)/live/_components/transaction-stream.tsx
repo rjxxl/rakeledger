@@ -1,5 +1,6 @@
 import Decimal from "decimal.js";
 import { Money } from "@/components/money";
+import { formatLocalTime } from "@/lib/format";
 import { prisma } from "@/lib/db";
 import type { AccountType, TransactionType } from "@prisma/client";
 import { PlayerNameTrigger } from "./player-name-trigger";
@@ -65,7 +66,7 @@ export async function TransactionStream({ sessionId, activeGameId, players, tabl
       </header>
       <div className="divide-y divide-[var(--color-border)]">
         {txs.map((tx) => {
-          const time = new Date(tx.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+          const time = formatLocalTime(tx.createdAt);
           const headlineDelta = pickHeadlineDelta(tx.ledgerEntries);
           const isReversal = tx.reversesId !== null;
           const wasReversed = reversedIds.has(tx.id);

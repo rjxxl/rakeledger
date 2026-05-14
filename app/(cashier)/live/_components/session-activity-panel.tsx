@@ -1,6 +1,7 @@
 "use client";
 
 import { Money } from "@/components/money";
+import { formatLocalTime } from "@/lib/format";
 import type { ActivityRow } from "../../_actions/activity";
 
 export interface SummaryItem {
@@ -46,7 +47,7 @@ export function SessionActivityPanel({ title, rows, summary }: PanelProps) {
                 }`}
               >
                 <span className="font-mono text-slate-500">
-                  {new Date(r.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                  {formatLocalTime(r.createdAt)}
                 </span>
                 <span>
                   <span className="text-slate-200">{r.type.toLowerCase().replace(/_/g, " ")}</span>

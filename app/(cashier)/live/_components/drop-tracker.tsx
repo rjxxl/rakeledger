@@ -1,4 +1,5 @@
 import { getDropTracker } from "@/lib/drops/last-drop";
+import { formatLocalTime } from "@/lib/format";
 import { StaffNameTrigger } from "./staff-name-trigger";
 
 interface Props {
@@ -13,13 +14,9 @@ interface Props {
 function ageColor(timestamp: Date | null): { label: string; cls: string } {
   if (!timestamp) return { label: "no drop yet", cls: "text-red-400" };
   const minutesAgo = (Date.now() - timestamp.getTime()) / 60_000;
-  if (minutesAgo < 60) return { label: formatTime(timestamp), cls: "text-slate-300" };
-  if (minutesAgo < 90) return { label: formatTime(timestamp) + " ⚠", cls: "text-amber-400" };
-  return { label: formatTime(timestamp) + " ⚠", cls: "text-red-400" };
-}
-
-function formatTime(d: Date) {
-  return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  if (minutesAgo < 60) return { label: formatLocalTime(timestamp), cls: "text-slate-300" };
+  if (minutesAgo < 90) return { label: formatLocalTime(timestamp) + " ⚠", cls: "text-amber-400" };
+  return { label: formatLocalTime(timestamp) + " ⚠", cls: "text-red-400" };
 }
 
 export async function DropTracker({ sessionId }: Props) {

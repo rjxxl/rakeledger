@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getOpenSession, openSession } from "../_actions/session";
 import { Money } from "@/components/money";
+import { formatLocalTimeWithSeconds } from "@/lib/format";
 import { prisma } from "@/lib/db";
 import { AccountStrip } from "./_components/account-strip";
 import { TransactionStream } from "./_components/transaction-stream";
@@ -70,7 +71,7 @@ export default async function LiveSessionPage({ searchParams }: PageProps) {
         <div>
           <h2 className="text-lg font-semibold">Tonight's Session</h2>
           <div className="text-xs text-slate-500">
-            opened {new Date(session.openedAt).toLocaleTimeString()} by {session.openedBy.name}
+            opened {formatLocalTimeWithSeconds(session.openedAt)} by {session.openedBy.name}
             {" · opening cash "}<Money amount={session.openingCash.toString()} />
           </div>
         </div>

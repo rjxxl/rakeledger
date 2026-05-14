@@ -2,6 +2,7 @@
 
 import Decimal from "decimal.js";
 import { useState, useTransition } from "react";
+import { formatLocalDate } from "@/lib/format";
 import { recordChipWalk, recordChipReturn } from "../../_actions/walks";
 
 /** Serialized walk passed across the RSC boundary (Prisma Decimal → string, Date → string) */
@@ -191,7 +192,7 @@ export function WalksReturnsStep({ sessionId, gameId, chipFloatBalance: chipFloa
               <span className="flex-1">
                 {w.player?.displayName ?? "Unknown"} — ${w.amount}
                 <span className="text-xs text-slate-500 ml-2">
-                  walked {new Date(w.sessionOpenedAt).toLocaleDateString()}
+                  walked {formatLocalDate(w.sessionOpenedAt)}
                 </span>
               </span>
               <form action={async (fd) => {

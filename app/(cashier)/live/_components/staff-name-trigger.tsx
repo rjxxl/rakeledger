@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { Modal } from "@/components/modal";
+import { formatLocalTime } from "@/lib/format";
 import { SessionActivityPanel, type SummaryItem } from "./session-activity-panel";
 import { getStaffSessionActivity, type StaffActivity } from "../../_actions/activity";
 
@@ -31,7 +32,7 @@ export function StaffNameTrigger({ sessionId, staffId, staffName }: Props) {
         {
           label: "Last drop",
           value: data.totals.lastDropAt
-            ? new Date(data.totals.lastDropAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+            ? formatLocalTime(data.totals.lastDropAt)
             : "—",
           raw: true,
         },
