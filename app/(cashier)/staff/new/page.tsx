@@ -1,4 +1,5 @@
 import { createStaff } from "../../_actions/staff";
+import { SubmitButton } from "@/components/submit-button";
 
 export default function NewStaffPage() {
   return (
@@ -25,9 +26,7 @@ export default function NewStaffPage() {
           <span className="text-slate-400">Custom tip tax rate (%)</span>
           <input name="tipTaxRate" type="number" min="0" max="100" step="1" placeholder="e.g. 15" className="bg-black/40 border border-[var(--color-border)] rounded px-3 py-2" />
         </label>
-        <button type="submit" className="bg-amber-500 text-black font-semibold rounded px-4 py-2">
-          Create
-        </button>
+        <SubmitButton>Create</SubmitButton>
       </form>
     </div>
   );

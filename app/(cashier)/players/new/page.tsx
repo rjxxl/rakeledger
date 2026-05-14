@@ -1,4 +1,5 @@
 import { createPlayer } from "../../_actions/players";
+import { SubmitButton } from "@/components/submit-button";
 
 export default function NewPlayerPage() {
   return (
@@ -17,9 +18,7 @@ export default function NewPlayerPage() {
           <span className="text-slate-400">Notes</span>
           <textarea name="notes" rows={3} className="bg-black/40 border border-[var(--color-border)] rounded px-3 py-2" />
         </label>
-        <button type="submit" className="bg-amber-500 text-black font-semibold rounded px-4 py-2">
-          Create
-        </button>
+        <SubmitButton>Create</SubmitButton>
       </form>
     </div>
   );
