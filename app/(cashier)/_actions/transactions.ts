@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache";
 import Decimal from "decimal.js";
 import { prisma } from "@/lib/db";
 import { createTransaction } from "@/lib/ledger/transaction";
-import type { PaymentMethod } from "@prisma/client";
+import type { PaymentMethod, Prisma } from "@prisma/client";
+import { allocateMarkerRepayments } from "@/lib/payouts/marker-allocation";
 import {
   buyInSchema, cashOutSchema, rakeSchema, tipDropSchema,
   markerIssueSchema, markerRepaySchema, parseFormData,
@@ -59,6 +60,53 @@ export async function recordBuyIn(formData: FormData): Promise<void> {
   revalidatePath("/live");
 }
 
+/**
+ * Repays a single marker inside an existing DB transaction. Mirrors the
+ * status/overpayment logic of `repayMarker`. Used by the marker-aware
+ * cash-out path so the CASH_OUT and all MARKER_REPAYs commit atomically.
+ */
+async function repayMarkerInTx(
+  txc: Prisma.TransactionClient,
+  args: {
+    marker: { id: string; amount: string; repaidAmount: string; playerId: string };
+    amount: Decimal;
+    method: PaymentMethod;
+    sessionId: string;
+    gameId: string;
+    cashierId: string;
+  }
+): Promise<void> {
+  const remaining = new Decimal(args.marker.amount).sub(args.marker.repaidAmount);
+  if (args.amount.greaterThan(remaining)) {
+    throw new Error(
+      `Repayment ${args.amount.toString()} exceeds remaining marker balance ${remaining.toString()}`
+    );
+  }
+  const targetAccount = METHOD_TO_ACCOUNT[args.method];
+  await createTransaction(
+    {
+      sessionId: args.sessionId,
+      gameId: args.gameId,
+      type: "MARKER_REPAY",
+      createdById: args.cashierId,
+      amount: args.amount,
+      method: args.method,
+      playerId: args.marker.playerId,
+      entries: [
+        { account: targetAccount, delta: args.amount },
+        { account: "MARKER_OUTSTANDING", delta: args.amount.neg() },
+      ],
+    },
+    txc
+  );
+  const newRepaid = new Decimal(args.marker.repaidAmount).add(args.amount);
+  const newStatus = newRepaid.greaterThanOrEqualTo(args.marker.amount) ? "REPAID" : "OPEN";
+  await txc.marker.update({
+    where: { id: args.marker.id },
+    data: { repaidAmount: newRepaid.toString(), status: newStatus },
+  });
+}
+
 export async function recordCashOut(formData: FormData): Promise<void> {
   const input = parseFormData(cashOutSchema, formData);
   await ensureSessionOpen(input.sessionId);
@@ -66,23 +114,91 @@ export async function recordCashOut(formData: FormData): Promise<void> {
   const cashierId = await getCashierUserId();
   const targetAccount = METHOD_TO_ACCOUNT[input.method as PaymentMethod];
   const amount = new Decimal(input.amount);
+  const method = input.method as PaymentMethod;
 
-  await createTransaction({
-    sessionId: input.sessionId,
-    gameId: input.gameId,
-    type: "CASH_OUT",
-    createdById: cashierId,
+  // No marker deduction → unchanged single-CASH_OUT behavior.
+  if (input.markerScope === "NONE") {
+    await createTransaction({
+      sessionId: input.sessionId,
+      gameId: input.gameId,
+      type: "CASH_OUT",
+      createdById: cashierId,
+      amount,
+      method,
+      playerId: input.playerId,
+      tableId: input.tableId ?? null,
+      entries: [
+        { account: targetAccount, delta: amount.neg() },
+        { account: "CHIP_FLOAT", delta: amount.neg() },
+      ],
+    });
+    revalidatePath("/live");
+    return;
+  }
+
+  // Marker-aware path. Re-fetch markers server-side (never trust the client)
+  // club-scoped, oldest-first, filtered to the requested scope.
+  const clubId = await getActiveClubId();
+  const allOpen = await prisma.marker.findMany({
+    where: { playerId: input.playerId, status: "OPEN", clubId },
+    orderBy: { createdAt: "asc" },
+    select: { id: true, amount: true, repaidAmount: true, sessionId: true, playerId: true },
+  });
+  const inScope =
+    input.markerScope === "TONIGHT"
+      ? allOpen.filter((mk) => mk.sessionId === input.sessionId)
+      : allOpen;
+
+  const allocation = allocateMarkerRepayments(
     amount,
-    method: input.method as PaymentMethod,
-    playerId: input.playerId,
-    tableId: input.tableId ?? null,
-    entries: [
-      { account: targetAccount, delta: amount.neg() },
-      { account: "CHIP_FLOAT", delta: amount.neg() },
-    ],
+    inScope.map((mk) => ({
+      id: mk.id,
+      remaining: new Decimal(mk.amount.toString()).sub(mk.repaidAmount.toString()),
+    }))
+  );
+  const markerById = new Map(inScope.map((mk) => [mk.id, mk]));
+
+  await prisma.$transaction(async (txc) => {
+    // Full chip value leaves the cage; the repays below claw the debt back
+    // into the same payment account, netting to the true payout.
+    await createTransaction(
+      {
+        sessionId: input.sessionId,
+        gameId: input.gameId,
+        type: "CASH_OUT",
+        createdById: cashierId,
+        amount,
+        method,
+        playerId: input.playerId,
+        tableId: input.tableId ?? null,
+        entries: [
+          { account: targetAccount, delta: amount.neg() },
+          { account: "CHIP_FLOAT", delta: amount.neg() },
+        ],
+      },
+      txc
+    );
+
+    for (const repayment of allocation.repayments) {
+      const mk = markerById.get(repayment.markerId)!;
+      await repayMarkerInTx(txc, {
+        marker: {
+          id: mk.id,
+          amount: mk.amount.toString(),
+          repaidAmount: mk.repaidAmount.toString(),
+          playerId: mk.playerId,
+        },
+        amount: repayment.amount,
+        method,
+        sessionId: input.sessionId,
+        gameId: input.gameId,
+        cashierId,
+      });
+    }
   });
 
   revalidatePath("/live");
+  revalidatePath("/markers");
 }
 
 export async function recordRake(formData: FormData): Promise<void> {
