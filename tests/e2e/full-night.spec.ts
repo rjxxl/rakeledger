@@ -55,7 +55,10 @@ test("full night: open session, add player, buy-in, cash-out, close", async ({ p
   await page.getByRole("button", { name: /− Cash-out/ }).click();
   await page.getByLabel(/Player/).selectOption({ label: "Test Player" });
   await page.locator("input[name=amount]").fill("500");
-  await page.getByRole("button", { name: /Record Cash-out/ }).click();
+  // Submit label is now dynamic ("Pay out $X" with no markers, since the
+  // marker-aware receipt computes a payout); the old "Record Cash-out" label
+  // no longer exists.
+  await page.getByRole("button", { name: /Pay out \$500/ }).click();
 
   // Wait for Server Action to complete, then close the modal
   await page.waitForTimeout(1000);
