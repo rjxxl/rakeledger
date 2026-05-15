@@ -2,7 +2,6 @@
 
 import { useState, useTransition } from "react";
 import { useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
 
 interface MembershipOption {
   clubId: string;
@@ -25,7 +24,6 @@ interface Props {
  */
 export function ClubSwitcher({ activeClubId, activeClubName, memberships }: Props) {
   const { update } = useSession();
-  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
 
@@ -41,7 +39,11 @@ export function ClubSwitcher({ activeClubId, activeClubName, memberships }: Prop
     setOpen(false);
     startTransition(async () => {
       await update({ activeClubId: clubId });
-      router.refresh();
+      // Full page reload instead of router.refresh() — the JWT cookie update can race
+      // with the RSC cache invalidation, occasionally leaving the current page rendering
+      // with the previous club's data. window.location.reload() guarantees the new
+      // cookie wins on the next render at the cost of a brief white flash.
+      window.location.reload();
     });
   }
 
