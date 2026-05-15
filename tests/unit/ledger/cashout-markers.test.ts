@@ -1,5 +1,4 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import Decimal from "decimal.js";
 import { testPrisma, resetDatabase } from "../test-db";
 
 vi.mock("next/cache", () => ({
@@ -83,5 +82,23 @@ describe("getOpenMarkersForPlayer", () => {
     const markers = await getOpenMarkersForPlayer(playerId, sessionId);
     expect(markers).toHaveLength(1);
     expect(markers[0].amount).toBe("100");
+  });
+
+  it("flags markers from other sessions as not current", async () => {
+    const { sessionId, gameId, playerId } = await seed();
+    const priorSession = await testPrisma.session.create({
+      data: { clubId: "test-club", openedById: "test-cashier", openingCash: "0" },
+    });
+    const priorGame = await testPrisma.game.create({
+      data: { sessionId: priorSession.id, name: "Prior", rakeSplitConfig: {} },
+    });
+    await issueMarker(
+      fd({ sessionId: priorSession.id, gameId: priorGame.id, playerId, amount: "75" })
+    );
+
+    const markers = await getOpenMarkersForPlayer(playerId, sessionId);
+    expect(markers).toHaveLength(1);
+    expect(markers[0].isCurrentSession).toBe(false);
+    expect(markers[0].sessionId).toBe(priorSession.id);
   });
 });

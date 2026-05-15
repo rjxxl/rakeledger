@@ -240,6 +240,7 @@ export async function getOpenMarkersForPlayer(
   currentSessionId: string
 ): Promise<OpenMarkerDTO[]> {
   const clubId = await getActiveClubId();
+  if (!clubId) throw new Error("No active club");
   const markers = await prisma.marker.findMany({
     where: { playerId, status: "OPEN", clubId },
     orderBy: { createdAt: "asc" },
