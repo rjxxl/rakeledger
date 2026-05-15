@@ -1,11 +1,13 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
+import { getActiveClubId } from "@/lib/active-user";
 import { updateStaff } from "../../_actions/staff";
 
 export default async function EditStaffPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  const clubId = await getActiveClubId();
   const s = await prisma.user.findUnique({ where: { id } });
-  if (!s) notFound();
+  if (!s || s.clubId !== clubId) notFound();
   const useDefault = s.tipTaxRate === null;
   const customPct = s.tipTaxRate ? (Number(s.tipTaxRate) * 100).toFixed(0) : "";
   return (

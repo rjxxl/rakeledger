@@ -1,8 +1,13 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
+import { getActiveClubId } from "@/lib/active-user";
 
 export default async function PlayersPage() {
-  const players = await prisma.player.findMany({ orderBy: { displayName: "asc" } });
+  const clubId = await getActiveClubId();
+  const players = await prisma.player.findMany({
+    where: { clubId },
+    orderBy: { displayName: "asc" },
+  });
   return (
     <div>
       <header className="flex justify-between items-center mb-4">

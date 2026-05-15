@@ -19,6 +19,13 @@ function roundHalfToEven(d: Decimal): Decimal {
 
 /** Returns one row per staff member who has a non-zero tip-pool slice in this session. */
 export async function computeTipPayouts(sessionId: string): Promise<TipPayoutRow[]> {
+  // Resolve the session's club so the SystemSettings (per-club tip tax) lookup below
+  // doesn't leak across tenants. Session.clubId is the source of truth.
+  const session = await prisma.session.findUniqueOrThrow({
+    where: { id: sessionId },
+    select: { clubId: true },
+  });
+
   const tipDrops = await prisma.transaction.findMany({
     where: { sessionId, type: "TIP_DROP", staffId: { not: null } },
     include: { staff: true, ledgerEntries: true },
@@ -60,15 +67,16 @@ export async function computeTipPayouts(sessionId: string): Promise<TipPayoutRow
     }
   }
 
-  // TODO(Phase A): scope by clubId once query refactor lands. Today this is single-tenant-safe
-  // because exactly one SystemSettings row exists; with two clubs it would silently pick whichever
-  // Postgres returns first (no ORDER BY) and leak tax rates between tenants. Derive clubId from
-  // the session (sessionId → game → clubId) and pass `where: { clubId }` here.
-  const settings = await prisma.systemSettings.findFirst();
+  // Per-club tip tax rate. SystemSettings is keyed by clubId post-Plan-2c; we scope explicitly
+  // so a second tenant's settings can't leak in. Session.clubId is nullable in the schema only
+  // because the multi-tenant migration was additive; for any post-Plan-2c session it's always set.
+  const settings = session.clubId
+    ? await prisma.systemSettings.findUnique({ where: { clubId: session.clubId } })
+    : null;
   const systemDefaultRate = new Decimal((settings?.defaultTipTaxRate ?? 0.20).toString());
 
   const users = await prisma.user.findMany({
-    where: { id: { in: [...perStaff.keys()] } },
+    where: { id: { in: [...perStaff.keys()] }, clubId: session.clubId },
     select: { id: true, tipTaxRate: true },
   });
   const rateByUser = new Map<string, Decimal>();

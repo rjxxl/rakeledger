@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
+import { getActiveClubId } from "@/lib/active-user";
 
 export default async function StaffPage() {
+  const clubId = await getActiveClubId();
   const staff = await prisma.user.findMany({
-    where: { role: { in: ["DEALER", "WAITRESS", "RUNNER"] } },
+    where: { role: { in: ["DEALER", "WAITRESS", "RUNNER"] }, clubId },
     orderBy: { name: "asc" },
   });
   return (

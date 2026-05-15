@@ -1,8 +1,13 @@
 import { prisma } from "@/lib/db";
+import { getActiveClubId } from "@/lib/active-user";
 import { createTable, toggleTableActive } from "../_actions/tables";
 
 export default async function TablesPage() {
-  const tables = await prisma.table.findMany({ orderBy: { name: "asc" } });
+  const clubId = await getActiveClubId();
+  const tables = await prisma.table.findMany({
+    where: { clubId },
+    orderBy: { name: "asc" },
+  });
   return (
     <div className="max-w-2xl">
       <h2 className="text-lg font-semibold mb-4">Tables</h2>

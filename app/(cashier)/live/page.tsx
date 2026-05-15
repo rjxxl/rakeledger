@@ -3,6 +3,7 @@ import { getOpenSession, openSession } from "../_actions/session";
 import { Money } from "@/components/money";
 import { formatLocalTimeWithSeconds } from "@/lib/format";
 import { prisma } from "@/lib/db";
+import { getActiveClubId } from "@/lib/active-user";
 import { AccountStrip } from "./_components/account-strip";
 import { TransactionStream } from "./_components/transaction-stream";
 import { QuickActions } from "./_components/quick-actions";
@@ -57,10 +58,19 @@ export default async function LiveSessionPage({ searchParams }: PageProps) {
       ? (session.games.find((g) => g.status === "OPEN") ?? session.games[0]).id
       : activeGameId;
 
-  const players = await prisma.player.findMany({ orderBy: { displayName: "asc" }, select: { id: true, displayName: true } });
-  const tables = await prisma.table.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } });
+  const clubId = await getActiveClubId();
+  const players = await prisma.player.findMany({
+    where: { clubId },
+    orderBy: { displayName: "asc" },
+    select: { id: true, displayName: true },
+  });
+  const tables = await prisma.table.findMany({
+    where: { clubId },
+    orderBy: { name: "asc" },
+    select: { id: true, name: true },
+  });
   const staff = await prisma.user.findMany({
-    where: { status: "ACTIVE" },
+    where: { status: "ACTIVE", clubId },
     orderBy: { name: "asc" },
     select: { id: true, name: true },
   });

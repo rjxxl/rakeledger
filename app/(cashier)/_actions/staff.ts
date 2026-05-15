@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import Decimal from "decimal.js";
 import { prisma } from "@/lib/db";
+import { getActiveClubId } from "@/lib/active-user";
 import type { UserRole } from "@prisma/client";
 
 // Convert an entered "tip tax rate" percentage string (e.g. "15") into a stored
@@ -26,8 +27,11 @@ export async function createStaff(formData: FormData) {
   }
   const tipTaxRate = tipTaxRateFromPercentage(useDefaultTax, tipTaxRateStr);
 
+  const clubId = await getActiveClubId();
+  if (!clubId) throw new Error("No active club — cannot create staff");
+
   await prisma.user.create({
-    data: { name, role, status: "ACTIVE", tipTaxRate },
+    data: { name, role, status: "ACTIVE", tipTaxRate, clubId },
   });
   revalidatePath("/staff");
   redirect("/staff");
@@ -42,6 +46,13 @@ export async function updateStaff(formData: FormData) {
 
   if (!id || !name) throw new Error("Invalid staff update");
   const tipTaxRate = tipTaxRateFromPercentage(useDefaultTax, tipTaxRateStr);
+
+  // Defense against cross-club edits: only allow updating staff in the caller's active club.
+  const clubId = await getActiveClubId();
+  const existing = await prisma.user.findUnique({ where: { id } });
+  if (!existing || existing.clubId !== clubId) {
+    throw new Error("Staff not found in your active club");
+  }
 
   await prisma.user.update({
     where: { id },

@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { getActiveClubId } from "@/lib/active-user";
 import { MarkerModalClient } from "./tx-marker-modal-client";
 
 interface MarkerModalProps {
@@ -8,12 +9,14 @@ interface MarkerModalProps {
 }
 
 export async function MarkerModal({ sessionId, gameId, trigger }: MarkerModalProps) {
+  const clubId = await getActiveClubId();
   const players = await prisma.player.findMany({
+    where: { clubId },
     orderBy: { displayName: "asc" },
     select: { id: true, displayName: true },
   });
   const openMarkers = await prisma.marker.findMany({
-    where: { status: "OPEN" },
+    where: { status: "OPEN", clubId },
     include: { player: true },
     orderBy: { createdAt: "desc" },
     take: 20,

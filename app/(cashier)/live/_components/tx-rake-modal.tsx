@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { getActiveClubId } from "@/lib/active-user";
 import { RakeModalClient } from "./tx-rake-modal-client";
 
 interface RakeModalProps {
@@ -8,13 +9,14 @@ interface RakeModalProps {
 }
 
 export async function RakeModal({ sessionId, gameId, trigger }: RakeModalProps) {
+  const clubId = await getActiveClubId();
   const dealers = await prisma.user.findMany({
-    where: { role: "DEALER", status: "ACTIVE" },
+    where: { role: "DEALER", status: "ACTIVE", clubId },
     orderBy: { name: "asc" },
     select: { id: true, name: true },
   });
   const tables = await prisma.table.findMany({
-    where: { active: true },
+    where: { active: true, clubId },
     orderBy: { name: "asc" },
     select: { id: true, name: true },
   });

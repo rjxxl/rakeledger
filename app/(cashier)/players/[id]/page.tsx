@@ -1,11 +1,13 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
+import { getActiveClubId } from "@/lib/active-user";
 import { updatePlayer } from "../../_actions/players";
 
 export default async function EditPlayerPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  const clubId = await getActiveClubId();
   const player = await prisma.player.findUnique({ where: { id } });
-  if (!player) notFound();
+  if (!player || player.clubId !== clubId) notFound();
   return (
     <div className="max-w-md">
       <h2 className="text-lg font-semibold mb-4">Edit {player.displayName}</h2>

@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { getActiveClubId } from "@/lib/active-user";
 import { FreerollModalClient } from "./tx-freeroll-modal-client";
 
 interface Props {
@@ -8,7 +9,9 @@ interface Props {
 }
 
 export async function FreerollModal({ sessionId, gameId, trigger }: Props) {
+  const clubId = await getActiveClubId();
   const players = await prisma.player.findMany({
+    where: { clubId },
     orderBy: { displayName: "asc" },
     select: { id: true, displayName: true },
   });

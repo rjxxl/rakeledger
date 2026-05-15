@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { getActiveClubId } from "@/lib/active-user";
 import { CashOutModalClient } from "./tx-cashout-modal-client";
 
 interface CashOutModalProps {
@@ -8,7 +9,9 @@ interface CashOutModalProps {
 }
 
 export async function CashOutModal({ sessionId, gameId, trigger }: CashOutModalProps) {
+  const clubId = await getActiveClubId();
   const players = await prisma.player.findMany({
+    where: { clubId },
     orderBy: { displayName: "asc" },
     select: { id: true, displayName: true },
   });
