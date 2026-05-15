@@ -13,6 +13,7 @@ import {
   staffAdvanceSchema, fnbCostSchema, drawerAdjustSchema, chipFloatAdjustSchema,
 } from "@/lib/validation/transactions";
 import { getCashierUserId } from "./_cashier";
+import { getActiveClubId } from "@/lib/active-user";
 
 async function ensureSessionOpen(sessionId: string): Promise<void> {
   const s = await prisma.session.findUnique({ where: { id: sessionId } });
@@ -157,6 +158,7 @@ export async function issueMarker(formData: FormData): Promise<void> {
     ],
   });
 
+  const session = await prisma.session.findUnique({ where: { id: input.sessionId }, select: { clubId: true } });
   await prisma.marker.create({
     data: {
       playerId: input.playerId,
@@ -165,6 +167,7 @@ export async function issueMarker(formData: FormData): Promise<void> {
       amount: amount.toString(),
       status: "OPEN",
       collateral,
+      clubId: session?.clubId ?? null,
     },
   });
 
@@ -214,6 +217,52 @@ export async function repayMarker(formData: FormData): Promise<void> {
 
   revalidatePath("/live");
   revalidatePath("/markers");
+}
+
+export interface OpenMarkerDTO {
+  id: string;
+  amount: string;
+  repaidAmount: string;
+  remaining: string;
+  sessionId: string;
+  issuedAt: string;
+  isCurrentSession: boolean;
+}
+
+/**
+ * Returns the player's OPEN markers, club-scoped, oldest-first. All Decimal
+ * fields are stringified so the result is safe to return to a client
+ * component. `isCurrentSession` lets the modal filter "tonight only" with no
+ * second round-trip.
+ */
+export async function getOpenMarkersForPlayer(
+  playerId: string,
+  currentSessionId: string
+): Promise<OpenMarkerDTO[]> {
+  const clubId = await getActiveClubId();
+  const markers = await prisma.marker.findMany({
+    where: { playerId, status: "OPEN", clubId },
+    orderBy: { createdAt: "asc" },
+    select: {
+      id: true,
+      amount: true,
+      repaidAmount: true,
+      sessionId: true,
+      createdAt: true,
+    },
+  });
+  return markers.map((mk) => {
+    const remaining = new Decimal(mk.amount.toString()).sub(mk.repaidAmount.toString());
+    return {
+      id: mk.id,
+      amount: mk.amount.toString(),
+      repaidAmount: mk.repaidAmount.toString(),
+      remaining: remaining.toString(),
+      sessionId: mk.sessionId,
+      issuedAt: mk.createdAt.toISOString(),
+      isCurrentSession: mk.sessionId === currentSessionId,
+    };
+  });
 }
 
 export async function recordTournamentFee(formData: FormData): Promise<void> {
