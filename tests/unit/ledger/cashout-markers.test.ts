@@ -175,5 +175,55 @@ describe("recordCashOut marker-aware", () => {
     expect(txs.filter((t) => t.type === "MARKER_REPAY")).toHaveLength(0);
     const oldMarker = await testPrisma.marker.findFirst({ where: { sessionId: oldSession.id } });
     expect(oldMarker?.status).toBe("OPEN");
+    expect((await getAccountBalance({ account: "CASH_DRAWER", sessionId })).toString()).toBe("-500");
+  });
+
+  it("does not over-repay a marker across sequential cash-outs (guard holds)", async () => {
+    const { sessionId, gameId, playerId } = await seed();
+    await issueMarker(fd({ sessionId, gameId, playerId, amount: "100" }));
+
+    // First cash-out repays the full 100 → marker REPAID.
+    await recordCashOut(
+      fd({ sessionId, gameId, playerId, method: "CASH", amount: "500", markerScope: "ALL" })
+    );
+    const m1 = await testPrisma.marker.findFirst({ where: { playerId } });
+    expect(m1?.status).toBe("REPAID");
+    expect(m1?.repaidAmount.toString()).toBe("100");
+
+    // Second cash-out: marker is already REPAID, so it is NOT in scope
+    // (findMany filters status:"OPEN"). No second MARKER_REPAY, repaidAmount
+    // never exceeds amount, and a normal full-payout CASH_OUT is recorded.
+    await recordCashOut(
+      fd({ sessionId, gameId, playerId, method: "CASH", amount: "200", markerScope: "ALL" })
+    );
+    const m2 = await testPrisma.marker.findFirst({ where: { playerId } });
+    expect(m2?.repaidAmount.toString()).toBe("100"); // unchanged, no over-repay
+    expect(
+      (await testPrisma.transaction.findMany({ where: { sessionId } }))
+        .filter((t) => t.type === "MARKER_REPAY").length
+    ).toBe(1); // only the first cash-out repaid
+    expect((await getAccountBalance({ account: "CASH_DRAWER", sessionId })).toString()).toBe("-600");
+  });
+
+  it("ALL scope, X = M exactly: payout 0, all markers REPAID, net 0", async () => {
+    const { sessionId, gameId, playerId } = await seed();
+    await issueMarker(fd({ sessionId, gameId, playerId, amount: "100" }));
+    await issueMarker(fd({ sessionId, gameId, playerId, amount: "50" }));
+    await recordCashOut(
+      fd({ sessionId, gameId, playerId, method: "CASH", amount: "150", markerScope: "ALL" })
+    );
+    const markers = await testPrisma.marker.findMany({ where: { playerId } });
+    expect(markers.every((m) => m.status === "REPAID")).toBe(true);
+    expect((await getAccountBalance({ account: "CASH_DRAWER", sessionId })).toString()).toBe("0");
+  });
+
+  it("ALL scope with ZELLE method nets on the ZELLE account", async () => {
+    const { sessionId, gameId, playerId } = await seed();
+    await issueMarker(fd({ sessionId, gameId, playerId, amount: "100" }));
+    await recordCashOut(
+      fd({ sessionId, gameId, playerId, method: "ZELLE", amount: "500", markerScope: "ALL" })
+    );
+    expect((await getAccountBalance({ account: "ZELLE", sessionId })).toString()).toBe("-400");
+    expect((await getAccountBalance({ account: "CASH_DRAWER", sessionId })).toString()).toBe("0");
   });
 });
