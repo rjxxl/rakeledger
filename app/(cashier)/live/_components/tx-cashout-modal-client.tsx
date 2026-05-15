@@ -13,6 +13,7 @@ import {
   type OpenMarkerDTO,
 } from "../../_actions/transactions";
 import { allocateMarkerRepayments } from "@/lib/payouts/marker-allocation";
+import { CLUB_TIMEZONE } from "@/lib/format";
 
 interface CashOutModalClientProps {
   sessionId: string;
@@ -40,7 +41,8 @@ type Scope = "ALL" | "TONIGHT" | "NONE";
 function markerLabel(mk: OpenMarkerDTO): string {
   if (mk.isCurrentSession) return "Marker (tonight)";
   const d = new Date(mk.issuedAt);
-  return `Marker (${d.toLocaleDateString("en-US", { month: "short", day: "numeric" })})`;
+  // Use CLUB_TIMEZONE so the date matches the cardroom's local calendar, not the browser or server TZ.
+  return `Marker (${d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: CLUB_TIMEZONE })})`;
 }
 
 function CashOutForm({ close, sessionId, gameId, players }: FormProps) {
@@ -102,11 +104,13 @@ function CashOutForm({ close, sessionId, gameId, players }: FormProps) {
         ? markers.filter((m) => m.isCurrentSession)
         : markers;
 
+  const chipValueDecimal = denominationMode
+    ? new Decimal(denomTotal)
+    : new Decimal(singleAmount || "0");
   const allocation = allocateMarkerRepayments(
-    new Decimal(chipValueNum),
+    chipValueDecimal,
     inScopeMarkers.map((m) => ({ id: m.id, remaining: new Decimal(m.remaining) }))
   );
-  const markerById = new Map(markers.map((m) => [m.id, m]));
   const repaidById = new Map(allocation.repayments.map((r) => [r.markerId, r.amount]));
   const stillOpenById = new Map(allocation.stillOpen.map((s) => [s.markerId, s.remaining]));
   const payoutStr = allocation.payout.toFixed(2);
@@ -123,7 +127,7 @@ function CashOutForm({ close, sessionId, gameId, players }: FormProps) {
           name="playerId"
           required
           value={playerId}
-          onChange={(e) => setPlayerId(e.target.value)}
+          onChange={(e) => { setPlayerId(e.target.value); setScope("ALL"); }}
           className="bg-black/40 border border-[var(--color-border)] rounded px-3 py-2"
         >
           <option value="">— select —</option>
@@ -203,10 +207,12 @@ function CashOutForm({ close, sessionId, gameId, players }: FormProps) {
             return (
               <div key={m.id} className="mt-1">
                 <div className="flex justify-between">
-                  <span className="text-slate-400">─ {markerLabel(markerById.get(m.id) ?? m)}</span>
-                  <span className="text-red-400">
-                    −${(applied ?? new Decimal(0)).toFixed(2)}
-                  </span>
+                  <span className="text-slate-400">─ {markerLabel(m)}</span>
+                  {applied && applied.greaterThan(0) ? (
+                    <span className="text-red-400">−${applied.toFixed(2)}</span>
+                  ) : (
+                    <span className="text-slate-600">—</span>
+                  )}
                 </div>
                 {leftover && (
                   <div className="text-[10px] text-slate-500 pl-3">
