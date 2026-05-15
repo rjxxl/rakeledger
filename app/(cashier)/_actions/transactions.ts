@@ -148,6 +148,7 @@ export async function recordCashOut(formData: FormData): Promise<void> {
   // Marker-aware path. Re-fetch markers server-side (never trust the client)
   // club-scoped, oldest-first, filtered to the requested scope.
   const clubId = await getActiveClubId();
+  if (!clubId) throw new Error("No active club");
   const allOpen = await prisma.marker.findMany({
     where: { playerId: input.playerId, status: "OPEN", clubId },
     orderBy: { createdAt: "asc" },
@@ -167,7 +168,8 @@ export async function recordCashOut(formData: FormData): Promise<void> {
   );
   const markerById = new Map(inScope.map((mk) => [mk.id, mk]));
 
-  await prisma.$transaction(async (txc) => {
+  try {
+    await prisma.$transaction(async (txc) => {
     // Full chip value leaves the cage; the repays below claw the debt back
     // into the same payment account, netting to the true payout.
     await createTransaction(
@@ -204,7 +206,19 @@ export async function recordCashOut(formData: FormData): Promise<void> {
         cashierId,
       });
     }
-  });
+    });
+  } catch (e) {
+    // The optimistic-concurrency guard in repayMarkerInTx aborts the whole
+    // $transaction (nothing persists) if a marker was repaid/changed between
+    // our read snapshot and the write. Surface a clean, actionable message
+    // instead of leaking the raw guard error to the cashier.
+    if (e instanceof Error && e.message.includes("changed concurrently during cash-out")) {
+      throw new Error(
+        "A marker for this player changed while you were cashing out. Nothing was recorded — please reopen the cash-out and try again."
+      );
+    }
+    throw e;
+  }
 
   revalidatePath("/live");
   revalidatePath("/markers");
