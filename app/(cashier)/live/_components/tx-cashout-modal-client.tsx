@@ -1,12 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
+import Decimal from "decimal.js";
 import { Modal } from "@/components/modal";
 import { useToast } from "@/components/toast/use-toast";
 import { useFormAction } from "@/components/use-form-action";
 import { useDenominationMode } from "@/components/use-denomination-mode";
-import { recordCashOut } from "../../_actions/transactions";
+import {
+  recordCashOut,
+  getOpenMarkersForPlayer,
+  type OpenMarkerDTO,
+} from "../../_actions/transactions";
+import { allocateMarkerRepayments } from "@/lib/payouts/marker-allocation";
+import { CLUB_TIMEZONE } from "@/lib/format";
 
 interface CashOutModalClientProps {
   sessionId: string;
@@ -29,12 +36,26 @@ const DENOMS = [
   { name: "n1", label: "$1", unit: 1 },
 ] as const;
 
+type Scope = "ALL" | "TONIGHT" | "NONE";
+
+function markerLabel(mk: OpenMarkerDTO): string {
+  if (mk.isCurrentSession) return "Marker (tonight)";
+  const d = new Date(mk.issuedAt);
+  // Use CLUB_TIMEZONE so the date matches the cardroom's local calendar, not the browser or server TZ.
+  return `Marker (${d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: CLUB_TIMEZONE })})`;
+}
+
 function CashOutForm({ close, sessionId, gameId, players }: FormProps) {
   const toast = useToast();
   const [denominationMode] = useDenominationMode();
   const [counts, setCounts] = useState<Record<string, number>>({ n100: 0, n25: 0, n5: 0, n1: 0 });
+  const [singleAmount, setSingleAmount] = useState("");
+  const [playerId, setPlayerId] = useState("");
+  const [scope, setScope] = useState<Scope>("ALL");
+  const [markers, setMarkers] = useState<OpenMarkerDTO[]>([]);
 
-  const total = DENOMS.reduce((sum, d) => sum + (counts[d.name] || 0) * d.unit, 0);
+  const denomTotal = DENOMS.reduce((sum, d) => sum + (counts[d.name] || 0) * d.unit, 0);
+  const chipValueNum = denominationMode ? denomTotal : parseFloat(singleAmount) || 0;
 
   const { onSubmit, pending, error } = useFormAction(recordCashOut, {
     onSuccess: (fd) => {
@@ -43,6 +64,21 @@ function CashOutForm({ close, sessionId, gameId, players }: FormProps) {
       close();
     },
   });
+
+  // Re-fetch markers only when the selected player changes.
+  useEffect(() => {
+    if (!playerId) {
+      setMarkers([]);
+      return;
+    }
+    let cancelled = false;
+    getOpenMarkersForPlayer(playerId, sessionId).then((m) => {
+      if (!cancelled) setMarkers(m);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [playerId, sessionId]);
 
   if (players.length === 0) {
     return (
@@ -61,13 +97,39 @@ function CashOutForm({ close, sessionId, gameId, players }: FormProps) {
     );
   }
 
+  const inScopeMarkers =
+    scope === "NONE"
+      ? []
+      : scope === "TONIGHT"
+        ? markers.filter((m) => m.isCurrentSession)
+        : markers;
+
+  const chipValueDecimal = denominationMode
+    ? new Decimal(denomTotal)
+    : new Decimal(singleAmount || "0");
+  const allocation = allocateMarkerRepayments(
+    chipValueDecimal,
+    inScopeMarkers.map((m) => ({ id: m.id, remaining: new Decimal(m.remaining) }))
+  );
+  const repaidById = new Map(allocation.repayments.map((r) => [r.markerId, r.amount]));
+  const stillOpenById = new Map(allocation.stillOpen.map((s) => [s.markerId, s.remaining]));
+  const payoutStr = allocation.payout.toFixed(2);
+  const hasDeduction = scope !== "NONE" && inScopeMarkers.length > 0;
+
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-3">
       <input type="hidden" name="sessionId" value={sessionId} />
       <input type="hidden" name="gameId" value={gameId} />
+      <input type="hidden" name="markerScope" value={scope} />
       <label className="flex flex-col gap-1 text-sm">
         <span className="text-slate-400">Player</span>
-        <select name="playerId" required className="bg-black/40 border border-[var(--color-border)] rounded px-3 py-2">
+        <select
+          name="playerId"
+          required
+          value={playerId}
+          onChange={(e) => { setPlayerId(e.target.value); setScope("ALL"); }}
+          className="bg-black/40 border border-[var(--color-border)] rounded px-3 py-2"
+        >
           <option value="">— select —</option>
           {players.map((p) => <option key={p.id} value={p.id}>{p.displayName}</option>)}
         </select>
@@ -90,11 +152,7 @@ function CashOutForm({ close, sessionId, gameId, players }: FormProps) {
               </label>
             ))}
           </div>
-          <div className="bg-amber-500/10 border border-amber-500/40 rounded p-3 text-center">
-            <div className="text-xs text-amber-400 uppercase tracking-wide">Total chip value</div>
-            <div className="font-mono text-2xl font-semibold text-amber-300">${total.toFixed(2)}</div>
-          </div>
-          <input type="hidden" name="amount" value={total.toFixed(2)} />
+          <input type="hidden" name="amount" value={denomTotal.toFixed(2)} />
         </>
       ) : (
         <label className="flex flex-col gap-1 text-sm">
@@ -105,6 +163,8 @@ function CashOutForm({ close, sessionId, gameId, players }: FormProps) {
             step="0.01"
             min="0.01"
             required
+            value={singleAmount}
+            onChange={(e) => setSingleAmount(e.target.value)}
             className="bg-black/40 border border-[var(--color-border)] rounded px-3 py-2 font-mono"
           />
         </label>
@@ -122,13 +182,59 @@ function CashOutForm({ close, sessionId, gameId, players }: FormProps) {
         </select>
       </label>
 
+      <label className="flex flex-col gap-1 text-sm">
+        <span className="text-slate-400">Marker deduction</span>
+        <select
+          value={scope}
+          onChange={(e) => setScope(e.target.value as Scope)}
+          className="bg-black/40 border border-[var(--color-border)] rounded px-3 py-2"
+        >
+          <option value="ALL">All open markers</option>
+          <option value="TONIGHT">Tonight&apos;s markers only</option>
+          <option value="NONE">None</option>
+        </select>
+      </label>
+
+      <div className="bg-amber-500/10 border border-amber-500/40 rounded p-3 text-sm font-mono">
+        <div className="flex justify-between">
+          <span className="text-slate-300">Chips turned in</span>
+          <span className="text-amber-300">${chipValueNum.toFixed(2)}</span>
+        </div>
+        {hasDeduction &&
+          inScopeMarkers.map((m) => {
+            const applied = repaidById.get(m.id);
+            const leftover = stillOpenById.get(m.id);
+            return (
+              <div key={m.id} className="mt-1">
+                <div className="flex justify-between">
+                  <span className="text-slate-400">─ {markerLabel(m)}</span>
+                  {applied && applied.greaterThan(0) ? (
+                    <span className="text-red-400">−${applied.toFixed(2)}</span>
+                  ) : (
+                    <span className="text-slate-600">—</span>
+                  )}
+                </div>
+                {leftover && (
+                  <div className="text-[10px] text-slate-500 pl-3">
+                    ${leftover.toFixed(2)} still open
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        <div className="border-t border-amber-500/30 mt-2 pt-2 flex justify-between">
+          <span className="text-amber-400 uppercase tracking-wide text-xs">Payout to player</span>
+          <span className="text-2xl font-semibold text-amber-300">${payoutStr}</span>
+        </div>
+      </div>
+
       {error && <p className="text-red-400 text-xs">{error}</p>}
       <button
         type="submit"
-        disabled={pending || (denominationMode && total <= 0)}
+        disabled={pending || chipValueNum <= 0}
         className="bg-amber-500 text-black font-semibold rounded px-4 py-2 hover:bg-amber-400 disabled:opacity-50"
       >
-        Record Cash-out
+        {allocation.payout.greaterThan(0) ? `Pay out $${payoutStr}` : "Record (no payout)"}
       </button>
     </form>
   );

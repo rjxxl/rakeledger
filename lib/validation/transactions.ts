@@ -26,6 +26,9 @@ export const cashOutSchema = z.object({
   method: methodEnum,
   tableId: optionalId,
   amount: decimalString,
+  // Marker deduction scope. Default NONE keeps every existing caller/test
+  // (and the no-deduction UI option) on today's single-CASH_OUT behavior.
+  markerScope: z.enum(["ALL", "TONIGHT", "NONE"]).default("NONE"),
 });
 
 export const rakeSchema = z.object({
