@@ -59,8 +59,12 @@ export async function openSession(formData: FormData): Promise<void> {
 }
 
 export async function getOpenSession() {
+  // Club-scoped: an open session in one tenant must never surface in another.
+  // No active club → no session to show (matches the openSession guard).
+  const clubId = await getActiveClubId();
+  if (!clubId) return null;
   return await prisma.session.findFirst({
-    where: { status: "OPEN" },
+    where: { status: "OPEN", clubId },
     include: { games: true, openedBy: true },
     orderBy: { openedAt: "desc" },
   });
