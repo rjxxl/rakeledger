@@ -82,6 +82,7 @@ enum TransactionType {
 enum SessionStatus {
   OPEN
   CLOSED
+  VOIDED
 }
 
 enum GameStatus {
