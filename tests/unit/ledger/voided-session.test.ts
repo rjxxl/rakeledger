@@ -3,7 +3,7 @@ import Decimal from "decimal.js";
 import { testPrisma, resetDatabase } from "../test-db";
 import { createTransaction } from "@/lib/ledger/transaction";
 
-describe("closed session is frozen", () => {
+describe("voided session is frozen at the DB layer", () => {
   let sessionId: string;
   let gameId: string;
 
@@ -11,8 +11,9 @@ describe("closed session is frozen", () => {
     await resetDatabase();
     const session = await testPrisma.session.create({
       data: {
+        clubId: "test-club",
         openedById: "test-cashier",
-        status: "CLOSED",
+        status: "VOIDED",
         closedAt: new Date(),
         closedById: "test-cashier",
       },
@@ -24,7 +25,7 @@ describe("closed session is frozen", () => {
     gameId = game.id;
   });
 
-  it("rejects insertion of a transaction into a closed session", async () => {
+  it("the DB trigger rejects a transaction inserted into a voided session", async () => {
     await expect(
       createTransaction({
         sessionId, gameId, type: "BUY_IN",

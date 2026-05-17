@@ -67,7 +67,7 @@ describe("createTransaction", () => {
           { account: "CHIP_FLOAT", delta: new Decimal(50) },
         ],
       })
-    ).rejects.toThrow(/closed session/i);
+    ).rejects.toThrow(/non-open session/i);
   });
 });
 
