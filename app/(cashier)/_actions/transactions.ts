@@ -19,8 +19,8 @@ import { getActiveClubId } from "@/lib/active-user";
 async function ensureSessionOpen(sessionId: string): Promise<void> {
   const s = await prisma.session.findUnique({ where: { id: sessionId } });
   if (!s) throw new Error("Session not found");
-  if (s.status === "CLOSED") {
-    throw new Error("Cannot record transactions on a closed session.");
+  if (s.status !== "OPEN") {
+    throw new Error("Cannot record transactions on a closed or voided session.");
   }
 }
 
