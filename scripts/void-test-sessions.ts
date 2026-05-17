@@ -14,6 +14,11 @@ const VOID_REASON = "VOIDED: pre-launch test session cleanup (2026-05-16)";
 async function main() {
   const execute = process.argv.includes("--execute");
   console.log(execute ? "*** EXECUTE MODE — will write ***\n" : "DRY RUN (no writes). Pass --execute to apply.\n");
+  const dbUrl = process.env.DATABASE_URL ?? "";
+  const host = dbUrl.replace(/\/\/[^@]*@/, "//***@");
+  console.log(`  target DB: ${host}\n`);
+
+  const planned: { id: string; data: { status: "VOIDED"; closedAt: Date; closedById: string; notes: string } }[] = [];
 
   for (const id of TARGETS) {
     const s = await prisma.session.findUnique({
@@ -29,24 +34,26 @@ async function main() {
       prisma.marker.count({ where: { sessionId: id } }),
     ]);
 
-    const newNotes = VOID_REASON + (s.notes ? ` | ${s.notes}` : "");
+    const newNotes = s.notes?.startsWith(VOID_REASON)
+      ? s.notes
+      : VOID_REASON + (s.notes ? ` | ${s.notes}` : "");
     const newClosedAt = s.closedAt ?? new Date();
     const newClosedById = s.closedById ?? VOIDER_USER_ID;
 
     console.log(`  ${s.club?.name} session ${id}`);
     console.log(`    status:     ${s.status} -> VOIDED`);
-    console.log(`    closedAt:   ${s.closedAt ? "(preserved) " + s.closedAt.toISOString() : "(set) " + newClosedAt.toISOString()}`);
+    console.log(`    closedAt:   ${s.closedAt ? "(preserved) " + s.closedAt.toISOString() : "(set at write time)"}`);
     console.log(`    closedById: ${s.closedById ? "(preserved) " + s.closedById : "(set) " + newClosedById}`);
     console.log(`    notes:      ${JSON.stringify(newNotes)}`);
     console.log(`    RETAINED (not deleted): transactions=${txs} ledgerEntries=${ledger} markers=${markers}`);
 
-    if (execute) {
-      await prisma.session.update({
-        where: { id },
-        data: { status: "VOIDED", closedAt: newClosedAt, closedById: newClosedById, notes: newNotes },
-      });
-      console.log(`    -> WRITTEN`);
-    }
+    planned.push({ id, data: { status: "VOIDED", closedAt: newClosedAt, closedById: newClosedById, notes: newNotes } });
+  }
+  if (execute) {
+    await prisma.$transaction(
+      planned.map((p) => prisma.session.update({ where: { id: p.id }, data: p.data }))
+    );
+    console.log(`\n  WROTE ${planned.length} session(s) atomically.`);
   }
   console.log(`\n${execute ? "Done (executed)." : "Dry run complete. Re-run with --execute to apply."}`);
 }
