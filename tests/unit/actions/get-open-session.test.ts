@@ -58,4 +58,12 @@ describe("getOpenSession club scoping", () => {
     const result = await getOpenSession();
     expect(result).toBeNull();
   });
+
+  it("excludes a VOIDED session in the active club", async () => {
+    await testPrisma.session.create({
+      data: { clubId: "test-club", openedById: "test-cashier", openingCash: "0", status: "VOIDED" },
+    });
+    const result = await getOpenSession();
+    expect(result).toBeNull();
+  });
 });
