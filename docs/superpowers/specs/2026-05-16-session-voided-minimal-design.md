@@ -29,9 +29,14 @@ Hard-deleting these is wrong: RakeLedger is an append-only double-entry ledger; 
 | `/close` page (`close/page.tsx:17`) — loads via `getOpenSession()` | Never receives a VOIDED session | None |
 | `games.ts:30` — `if (session.status !== "OPEN") throw` | Already blocks VOIDED | None |
 | **`ensureSessionOpen` (`transactions.ts:22`) — `if (s.status === "CLOSED") throw`** | **VOIDED slips through → transactions could be recorded** | **FIX** |
+| **DB trigger `check_session_open()` (`20260504065525_triggers`) — `IF s_status = 'CLOSED'`** | **VOIDED slips through → Transaction INSERT allowed at DB layer** | **FIX** |
 | Reports / cross-session aggregates | None exist in the app | None |
 
-The only real break is `ensureSessionOpen`. Everything else already keys off `status: "OPEN"` (allow-list semantics), so VOIDED is excluded for free.
+There are **two** real breaks (the second found during plan-writing): the app guard
+`ensureSessionOpen` *and* the database trigger `check_session_open()` — both block
+only `CLOSED`, so a `VOIDED` session would still accept transactions. Everything
+else already keys off `status: "OPEN"` (allow-list semantics), so VOIDED is
+excluded for free.
 
 ## Design
 
@@ -51,9 +56,9 @@ Single additive Prisma migration (enum value only). **No column changes.** Void 
 - `closedById` → user who voided it
 - `notes` → human reason, format `"VOIDED: <reason>"`
 
-### 2. Behavioral fix
+### 2. Behavioral fixes (two layers)
 
-`app/(cashier)/_actions/transactions.ts`, `ensureSessionOpen` (line 22):
+**2a. App guard** — `app/(cashier)/_actions/transactions.ts`, `ensureSessionOpen` (line 22):
 
 ```ts
 // before
@@ -66,7 +71,30 @@ if (s.status !== "OPEN") {
 }
 ```
 
-This is the sole code change. It hardens the guard to an allow-list (only `OPEN` may receive transactions), which is correct for `CLOSED` today and `VOIDED` going forward.
+**2b. DB trigger** — a new Prisma migration replaces the `check_session_open()`
+function so the database itself rejects inserts into any non-OPEN session
+(defense-in-depth; `createTransaction` callers that bypass `ensureSessionOpen`
+still hit this):
+
+```sql
+CREATE OR REPLACE FUNCTION check_session_open() RETURNS trigger AS $$
+DECLARE
+  s_status text;
+BEGIN
+  SELECT status INTO s_status FROM "Session" WHERE id = NEW."sessionId";
+  IF s_status <> 'OPEN' THEN
+    RAISE EXCEPTION 'Cannot insert Transaction into non-open session % (status %)', NEW."sessionId", s_status
+      USING ERRCODE = 'check_violation';
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+```
+
+The trigger object itself (`tx_session_must_be_open`) is unchanged — only the
+function body is replaced. Both fixes adopt the same allow-list rule: only
+`OPEN` may receive transactions, correct for `CLOSED` today and `VOIDED` going
+forward.
 
 ### 3. Data migration
 
@@ -86,8 +114,15 @@ A one-off script `scripts/void-test-sessions.ts`:
 
 ### 4. Tests
 
-- New: `ensureSessionOpen` throws when the session is `VOIDED` (regression for the one real break). Place alongside existing transaction-action tests.
-- New: `getOpenSession` excludes a `VOIDED` session (locks in the auto-exclusion assumption; extends the existing `get-open-session.test.ts`).
+- New (break 2b, DB trigger): a `createTransaction` insert into a `VOIDED`
+  session rejects at the database layer. Mirrors
+  `tests/unit/ledger/closed-session.test.ts` (which calls `createTransaction`
+  directly, exercising the trigger rather than the app guard).
+- New (break 2a, app guard): a server action that calls `ensureSessionOpen`
+  (e.g. `recordBuyIn`) throws when the session is `VOIDED`. Lives in the
+  transaction-action tests.
+- New: `getOpenSession` excludes a `VOIDED` session (locks in the auto-exclusion
+  assumption; extends the existing `tests/unit/actions/get-open-session.test.ts`).
 - Existing full suite must stay green — no other consumer changes.
 
 ## Out of Scope (Minimal)
@@ -99,6 +134,8 @@ A one-off script `scripts/void-test-sessions.ts`:
 
 ## Risks & Mitigations
 
-- **A VOIDED session accepting transactions** — mitigated by the `ensureSessionOpen` fix + a regression test.
+- **A VOIDED session accepting transactions** — mitigated at *both* layers (app
+  guard 2a + DB trigger 2b), each with a regression test. The trigger gap was
+  found during plan-writing; the spec audit originally covered only app/lib code.
 - **Accidentally voiding the wrong session** — mitigated by the script's hard-coded two-ID allow-list and dry-run-first/`--execute` gate, run by the user.
 - **Enum migration on Postgres** — adding a value to a Prisma enum is an additive, non-breaking migration; no existing rows change.
